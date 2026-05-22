@@ -1,21 +1,186 @@
-MIT License
+genATP Personal Use License
+Version 1.0, 2026
 
-Copyright (c) 2026 genATP
+Copyright (c) 2026 genATP. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+THIS IS NOT AN OPEN SOURCE LICENSE.
+THIS IS NOT A FREE SOFTWARE LICENSE.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The source code of this software (the "Software") is made available for
+inspection and limited personal use under the terms below. All other rights
+are reserved by the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+================================================================================
+1. DEFINITIONS
+================================================================================
+
+"You" means the individual reading these terms.
+
+"Personal Use" means use by an individual natural person for that person's own
+private, non-commercial purposes, including learning, evaluation, research,
+education, and personal projects that are not made available to third parties.
+
+"Commercial Use" means any use of the Software, in whole or in part, that is:
+   (a) intended for or directed toward commercial advantage or monetary
+       compensation;
+   (b) performed by or on behalf of any for-profit entity, organization, or
+       business (including sole proprietorships);
+   (c) used to provide, support, or deliver any product or service for which
+       any fee, subscription, advertising revenue, or other consideration is
+       received, directly or indirectly;
+   (d) used internally by any organization with more than one (1) person; or
+   (e) used to train, fine-tune, or evaluate any machine-learning model that
+       is itself used for Commercial Use.
+
+"Derivative Work" means any work, in any form, that is based on, derived from,
+modifies, or incorporates any portion of the Software.
+
+================================================================================
+2. GRANT OF LIMITED RIGHTS
+================================================================================
+
+Subject to your full and continuing compliance with every term of this License,
+the copyright holder grants you a worldwide, non-exclusive, non-transferable,
+non-sublicensable, royalty-free, revocable license to:
+
+   (a) view and read the source code of the Software;
+
+   (b) install and run the Software on devices that you personally own or
+       control, solely for Personal Use;
+
+   (c) make modifications to the Software solely for your own Personal Use,
+       provided that such modifications are not distributed, published,
+       shared, hosted, or otherwise made available to any third party in any
+       form.
+
+No other rights are granted, expressly or by implication.
+
+================================================================================
+3. RESTRICTIONS
+================================================================================
+
+You may NOT, under any circumstances:
+
+   (a) Copy, reproduce, distribute, publish, host, mirror, upload, share, or
+       otherwise make the Software or any portion of it available to any
+       third party, whether in original or modified form, whether for a fee
+       or free of charge.
+
+   (b) Use the Software, or any Derivative Work, for any Commercial Use.
+
+   (c) Sell, rent, lease, lend, sublicense, or otherwise commercially exploit
+       the Software, any Derivative Work, or access to either.
+
+   (d) Distribute, publish, or make available any Derivative Work.
+
+   (e) Use the Software to provide any service, product, platform, or feature
+       that is offered to or used by any third party.
+
+   (f) Remove, obscure, or alter any copyright, trademark, license, or other
+       proprietary notice contained in the Software.
+
+   (g) Use the name "genATP", the genATP logo, or any related trademark,
+       service mark, or trade name, except as strictly required to comply
+       with section 3(f).
+
+   (h) Reverse engineer the Software for the purpose of creating a competing
+       product or service.
+
+   (i) Sublicense, assign, or transfer any of your rights under this License
+       to any other person or entity.
+
+   (j) Use the Software in any way that violates any applicable law or
+       regulation, or that infringes any third-party right.
+
+================================================================================
+4. CONTRIBUTIONS
+================================================================================
+
+If you submit any code, documentation, or other content to the copyright
+holder (a "Contribution"), you grant the copyright holder a perpetual,
+worldwide, irrevocable, royalty-free license to use, reproduce, modify,
+distribute, sublicense, and commercially exploit your Contribution under any
+license terms, including proprietary licenses. You represent that you have
+the right to grant this license for your Contribution.
+
+================================================================================
+5. NO PATENT OR TRADEMARK GRANT
+================================================================================
+
+No patent rights and no trademark rights are granted to you under this
+License, whether by implication, estoppel, or otherwise. The genATP name and
+logo are trademarks of the copyright holder.
+
+================================================================================
+6. TERMINATION
+================================================================================
+
+This License terminates automatically and immediately, without notice, upon
+any breach by you of any term of this License. Upon termination you must:
+
+   (a) immediately cease all use of the Software and all Derivative Works;
+   (b) permanently delete all copies of the Software and all Derivative Works
+       in your possession or control;
+   (c) on request, certify in writing to the copyright holder that you have
+       complied with (a) and (b).
+
+Sections 3, 4, 5, 7, 8, and 9 survive termination.
+
+================================================================================
+7. NO WARRANTY
+================================================================================
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+THE COPYRIGHT HOLDER DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE,
+UNINTERRUPTED, SECURE, OR FREE OF HARMFUL COMPONENTS.
+
+================================================================================
+8. LIMITATION OF LIABILITY
+================================================================================
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+COPYRIGHT HOLDER, ITS AFFILIATES, OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE
+DAMAGES (INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, REVENUE, DATA, USE,
+GOODWILL, OR OTHER INTANGIBLE LOSSES), WHETHER ARISING IN CONTRACT, TORT,
+STRICT LIABILITY, OR OTHERWISE, ARISING OUT OF OR IN CONNECTION WITH THIS
+LICENSE OR THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+================================================================================
+9. GOVERNING LAW
+================================================================================
+
+This License shall be governed by and construed in accordance with the laws
+of the jurisdiction in which the copyright holder resides, without regard to
+its conflict-of-law principles. Any dispute arising under or in connection
+with this License shall be resolved exclusively in the courts of that
+jurisdiction.
+
+================================================================================
+10. COMMERCIAL LICENSING
+================================================================================
+
+If you wish to use the Software for any purpose not permitted by this License
+(including any Commercial Use, redistribution, or creation and distribution
+of Derivative Works), you must obtain a separate written commercial license
+from the copyright holder. Contact: licensing@genatp.dev
+
+================================================================================
+11. ENTIRE AGREEMENT
+================================================================================
+
+This License is the entire agreement between you and the copyright holder
+concerning the Software and supersedes any prior or contemporaneous
+agreements, communications, or proposals, whether oral or written, between
+you and the copyright holder relating to the Software.
+
+If any provision of this License is held to be unenforceable or invalid,
+that provision shall be limited or eliminated to the minimum extent
+necessary so that the remainder of this License remains in full force and
+effect.
+
+================================================================================
+
+END OF LICENSE
