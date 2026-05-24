@@ -41,14 +41,8 @@ jobs:
       - name: cargo clippy --workspace -- -D warnings
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deny
-
-      - name: cargo deny check
-        run: cargo deny check
-
+      # cargo-audit before cargo-deny; deny uses ~/.cargo/deny-advisory-db (see deny.toml)
+      # so it does not collide with audit's ~/.cargo/advisory-db.
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
         with:
@@ -56,6 +50,14 @@ jobs:
 
       - name: cargo audit
         run: cargo audit --deny warnings
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: cargo deny check
+        run: cargo deny check
 
   # ----- 5-target build/test matrix per Phase 0 acceptance criteria -----
   test:

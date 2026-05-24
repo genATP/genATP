@@ -9,7 +9,10 @@ targets = [
 ]
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
+# Separate from cargo-audit's default (~/.cargo/advisory-db). Both tools fetch
+# RustSec advisories but initialize the directory differently; sharing one path
+# breaks CI with "Refusing to initialize the non-empty directory".
+db-path = "~/.cargo/deny-advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
 ignore = []
