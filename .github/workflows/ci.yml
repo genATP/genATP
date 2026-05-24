@@ -60,29 +60,30 @@ jobs:
         run: cargo deny check
 
   # ----- 5-target build/test matrix per Phase 0 acceptance criteria -----
+  # macos-13 free-tier runners can queue 30+ min on weekends — timeout-minutes
+  # bounds the wait so a stuck job doesn't block PR merges indefinitely.
   test:
     name: test (${{ matrix.target }})
     needs: lint
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            cross: false
           - os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
-            cross: false
           - os: macos-13
             target: x86_64-apple-darwin
-            cross: false
           - os: macos-14
             target: aarch64-apple-darwin
-            cross: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            cross: false
     runs-on: ${{ matrix.os }}
+    env:
+      # Browser integration tests honor CHROME_PATH; setup-chrome exports it.
+      GENATP_TEST_HEADLESS: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -95,6 +96,20 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
+
+      - name: Setup Chrome (for genatp-browser integration tests)
+        uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+        with:
+          chrome-version: stable
+
+      - name: Export CHROME_PATH (unix)
+        if: runner.os != 'Windows'
+        run: echo "CHROME_PATH=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
+
+      - name: Export CHROME_PATH (windows)
+        if: runner.os == 'Windows'
+        run: echo "CHROME_PATH=${{ steps.setup-chrome.outputs.chrome-path }}" >> $env:GITHUB_ENV
 
       - name: cargo build --workspace
         run: cargo build --workspace --target ${{ matrix.target }} --verbose
