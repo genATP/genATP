@@ -31,6 +31,13 @@ use chromiumoxide::handler::viewport::Viewport;
 
 use crate::error::{BrowserError, Result};
 
+/// chromiumoxide's [`BrowserConfigBuilder::arg`] treats strings as flag *keys*
+/// and prefixes `--`. Passing `"--no-sandbox"` becomes `----no-sandbox`, which
+/// Chrome ignores — use bare keys (`no-sandbox`) or [`BrowserConfigBuilder::no_sandbox`].
+fn normalize_chromium_arg(arg: &str) -> &str {
+    arg.strip_prefix("--").unwrap_or(arg)
+}
+
 /// Default viewport width — chosen to match a common desktop screen so pages
 /// that opt into responsive layouts give us the desktop tree (richer a11y).
 pub const DEFAULT_VIEWPORT_WIDTH: u32 = 1280;
@@ -220,35 +227,37 @@ impl LaunchOptions {
         args
     }
 
-    /// GitHub Actions / Docker Linux runners ship Chrome without a correctly
-    /// configured setuid sandbox (`chrome-sandbox` mode 4755). Chrome aborts
-    /// with exit 134 unless we disable the sandbox.
-    ///
-    /// Applied on Linux when any of:
-    /// - `CI`, `GITHUB_ACTIONS`, or `GENATP_TEST_HEADLESS` is set (CI), or
-    /// - headless mode is active (the default for tests and production).
-    fn linux_ci_sandbox_args(&self) -> Vec<String> {
+    /// Whether Linux Chrome must run without the setuid sandbox (CI / headless).
+    #[must_use]
+    fn should_disable_chromium_sandbox(&self) -> bool {
         #[cfg(not(target_os = "linux"))]
         {
             let _ = self;
-            Vec::new()
+            false
         }
 
         #[cfg(target_os = "linux")]
         {
-            let disable_sandbox = std::env::var_os("CI").is_some()
+            std::env::var_os("CI").is_some()
                 || std::env::var_os("GITHUB_ACTIONS").is_some()
                 || std::env::var_os("GENATP_TEST_HEADLESS").is_some()
-                || !matches!(self.headless, HeadlessMode::Visible);
+                || !matches!(self.headless, HeadlessMode::Visible)
+        }
+    }
 
-            if disable_sandbox {
-                vec![
-                    "--no-sandbox".to_string(),
-                    "--disable-setuid-sandbox".to_string(),
-                ]
-            } else {
-                Vec::new()
-            }
+    /// GitHub Actions / Docker Linux runners ship Chrome without a correctly
+    /// configured setuid sandbox (`chrome-sandbox` mode 4755). Chrome aborts
+    /// with exit 134 unless we disable the sandbox.
+    ///
+    /// Applied on Linux when [`should_disable_chromium_sandbox`] is true.
+    fn linux_ci_sandbox_args(&self) -> Vec<String> {
+        if self.should_disable_chromium_sandbox() {
+            vec![
+                "--no-sandbox".to_string(),
+                "--disable-setuid-sandbox".to_string(),
+            ]
+        } else {
+            Vec::new()
         }
     }
 
@@ -280,11 +289,15 @@ impl LaunchOptions {
 
         builder = builder.request_timeout(self.connect_timeout);
 
+        if self.should_disable_chromium_sandbox() {
+            builder = builder.no_sandbox();
+        }
+
         for arg in self.baseline_args() {
-            builder = builder.arg(arg);
+            builder = builder.arg(normalize_chromium_arg(&arg));
         }
         for arg in &self.extra_args {
-            builder = builder.arg(arg.as_str());
+            builder = builder.arg(normalize_chromium_arg(arg));
         }
 
         // Set the timezone via env var inherited by Chrome's process.
@@ -343,6 +356,13 @@ mod tests {
         LaunchOptions::default()
             .into_config()
             .expect("default config should build");
+    }
+
+    #[test]
+    fn normalize_chromium_arg_strips_leading_dashes() {
+        assert_eq!(super::normalize_chromium_arg("--no-sandbox"), "no-sandbox");
+        assert_eq!(super::normalize_chromium_arg("--lang=en-US"), "lang=en-US");
+        assert_eq!(super::normalize_chromium_arg("disable-gpu"), "disable-gpu");
     }
 
     #[test]

@@ -8,6 +8,17 @@ use std::sync::Arc;
 use genatp_browser::LaunchOptions;
 
 use axum::Router;
+use tokio::sync::Mutex;
+
+/// `cargo test` runs integration tests in parallel by default. Multiple
+/// simultaneous Chrome launches on Windows often fail with exit 21; serialize.
+static CHROME_TEST_LOCK: std::sync::LazyLock<Mutex<()>> =
+    std::sync::LazyLock::new(|| Mutex::new(()));
+
+/// Hold for the duration of a test that launches Chrome.
+pub async fn chrome_test_guard() -> tokio::sync::MutexGuard<'static, ()> {
+    CHROME_TEST_LOCK.lock().await
+}
 use axum::extract::{Path, State};
 use axum::http::{StatusCode, header};
 use axum::response::IntoResponse;

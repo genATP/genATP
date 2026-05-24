@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use genatp_browser::{BrowserPool, PoolConfig, launch};
 
-use crate::common::{FixtureServer, chrome_available, test_launch_options};
+use crate::common::{FixtureServer, chrome_available, chrome_test_guard, test_launch_options};
 
 macro_rules! skip_without_chrome {
     () => {
@@ -29,6 +29,7 @@ macro_rules! skip_without_chrome {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn navigate_hello_returns_a11y_tree_with_interactive_elements() {
     skip_without_chrome!();
+    let _chrome = chrome_test_guard().await;
 
     let server = FixtureServer::start().await;
     let handle = launch(test_launch_options()).await.expect("launch chrome");
@@ -57,6 +58,7 @@ async fn navigate_hello_returns_a11y_tree_with_interactive_elements() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn pool_supports_four_concurrent_pages() {
     skip_without_chrome!();
+    let _chrome = chrome_test_guard().await;
 
     let server = FixtureServer::start().await;
     let pool = BrowserPool::new(
@@ -88,6 +90,7 @@ async fn pool_supports_four_concurrent_pages() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn pool_acquire_times_out_when_capacity_exhausted() {
     skip_without_chrome!();
+    let _chrome = chrome_test_guard().await;
 
     let server = FixtureServer::start().await;
     let mut config = PoolConfig::default()
