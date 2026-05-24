@@ -48,7 +48,10 @@ jobs:
         id: detect
         shell: bash
         run: |
+          # Detect both workspace-level (benches/) and per-crate (crates/*/benches/) benches.
           if [ -d benches ] && [ "$(ls -A benches 2>/dev/null)" ]; then
+            echo "has_benches=true" >> "$GITHUB_OUTPUT"
+          elif find crates -mindepth 3 -maxdepth 3 -type d -name benches -not -empty 2>/dev/null | grep -q .; then
             echo "has_benches=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_benches=false" >> "$GITHUB_OUTPUT"

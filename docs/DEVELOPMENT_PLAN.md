@@ -30,13 +30,15 @@ genATP is a **production-grade, extremely fast** unified web-access layer for AI
 
 ### What we are building
 
-| Layer | Deliverable |
-|---|---|
-| Core | Rust engine (Tokio), single static binary, sub-2s cold start |
-| Browser | Direct Chrome DevTools Protocol (CDP) — **not Playwright** |
-| Interfaces | MCP server, Python SDK (PyO3), TypeScript SDK (NAPI-RS), CLI |
-| Differentiators | Action Cassettes, ATP Spec, Cassette Registry |
-| Commercial | genATP Cloud (Phase 15), Enterprise (Phase 16) |
+
+| Layer           | Deliverable                                                  |
+| --------------- | ------------------------------------------------------------ |
+| Core            | Rust engine (Tokio), single static binary, sub-2s cold start |
+| Browser         | Direct Chrome DevTools Protocol (CDP) — **not Playwright**   |
+| Interfaces      | MCP server, Python SDK (PyO3), TypeScript SDK (NAPI-RS), CLI |
+| Differentiators | Action Cassettes, ATP Spec, Cassette Registry                |
+| Commercial      | genATP Cloud (Phase 15), Enterprise (Phase 16)               |
+
 
 ### Guiding principles
 
@@ -46,18 +48,20 @@ genATP is a **production-grade, extremely fast** unified web-access layer for AI
 
 ### Key milestones
 
-| Week | Release | What ships |
-|---|---|---|
-| 8 | **v0.1.0** | MCP server + perception + orchestrator (first public release) |
-| 10 | v0.2.0 | Python SDK |
-| 12 | v0.3.0 | Auth Vault |
-| 16 | v0.5.0 | Cassettes (record + replay + self-heal) + ATP Spec |
-| 19 | v0.6.0 | TypeScript SDK |
-| 21 | v0.7.0 | Stealth engine |
-| 26 | v0.8.0 | Cassette Registry |
-| 30 | Cloud beta | Managed infrastructure |
-| 36 | Enterprise | SOC 2 Type I, SSO, on-prem |
-| 40 | **v1.0.0** | GA + published WebVoyager benchmark |
+
+| Week | Release    | What ships                                                    |
+| ---- | ---------- | ------------------------------------------------------------- |
+| 8    | **v0.1.0** | MCP server + perception + orchestrator (first public release) |
+| 10   | v0.2.0     | Python SDK                                                    |
+| 12   | v0.3.0     | Auth Vault                                                    |
+| 16   | v0.5.0     | Cassettes (record + replay + self-heal) + ATP Spec            |
+| 19   | v0.6.0     | TypeScript SDK                                                |
+| 21   | v0.7.0     | Stealth engine                                                |
+| 26   | v0.8.0     | Cassette Registry                                             |
+| 30   | Cloud beta | Managed infrastructure                                        |
+| 36   | Enterprise | SOC 2 Type I, SSO, on-prem                                    |
+| 40   | **v1.0.0** | GA + published WebVoyager benchmark                           |
+
 
 ---
 
@@ -65,45 +69,51 @@ genATP is a **production-grade, extremely fast** unified web-access layer for AI
 
 ### 2.1 Final choices
 
-| Layer | Choice | Rationale |
-|---|---|---|
-| **Language** | Rust (stable, MSRV pinned) + Tokio | Millisecond cold start, no GC pauses in hot path, memory safety for vault/crypto |
-| **Browser driver** | Direct CDP via `chromiumoxide` (soft-fork when needed) | Sub-ms action dispatch; avoids Playwright's Node IPC (~15–40 ms/step) and detectable CDP fingerprint |
-| **Browser binary** | System Chrome + runtime CDP overrides (v0.1–v0.4); reproducibly-built patched Chromium (v0.5+) | Proven anti-detection path (`nodriver`/`zendriver` model) before custom Chromium build pipeline |
-| **MCP server** | `rmcp` (official Rust MCP SDK) | Spec-compliant, stdio + HTTP |
-| **HTTP API** | `axum` + Tower middleware | Standard async Rust stack |
-| **Python SDK** | PyO3 + maturin | Native speed, one engine, no drift |
-| **TypeScript SDK** | NAPI-RS | Same engine in Node/Bun/Deno |
-| **Local storage** | SQLite (`rusqlite`) | Vault, cassettes, snapshot index — zero infra, ACID |
-| **Cloud storage** | Postgres + S3 | Multi-tenant, content-addressed blobs |
-| **Crypto** | `ring` (AES-256-GCM, ed25519) + `keyring` crate | Audited primitives; OS keychain integration |
-| **Content addressing** | BLAKE3 | Faster than SHA-256; native Rust |
-| **Cassette format** | JSON (JCS canonical) + zstd + ed25519 | Human-inspectable, compact, verifiable |
-| **Registry** | OCI Distribution Spec v1.1 on S3 | Industry standard |
-| **LLM** | In-house `genatp-llm` trait (Anthropic, OpenAI, Google, Mistral, Ollama, vLLM) | No LangChain in core; adapters optional |
-| **Observability** | `tracing` + OpenTelemetry (opt-in in Personal/self-hosted tier) | Cost attribution per span |
-| **CLI** | `clap` | Subcommands: `serve`, `record`, `run`, `test`, `replay`, `install` |
+
+| Layer                  | Choice                                                                                         | Rationale                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Language**           | Rust (stable, MSRV pinned) + Tokio                                                             | Millisecond cold start, no GC pauses in hot path, memory safety for vault/crypto                     |
+| **Browser driver**     | Direct CDP via `chromiumoxide` (soft-fork when needed)                                         | Sub-ms action dispatch; avoids Playwright's Node IPC (~15–40 ms/step) and detectable CDP fingerprint |
+| **Browser binary**     | System Chrome + runtime CDP overrides (v0.1–v0.4); reproducibly-built patched Chromium (v0.5+) | Proven anti-detection path (`nodriver`/`zendriver` model) before custom Chromium build pipeline      |
+| **MCP server**         | `rmcp` (official Rust MCP SDK)                                                                 | Spec-compliant, stdio + HTTP                                                                         |
+| **HTTP API**           | `axum` + Tower middleware                                                                      | Standard async Rust stack                                                                            |
+| **Python SDK**         | PyO3 + maturin                                                                                 | Native speed, one engine, no drift                                                                   |
+| **TypeScript SDK**     | NAPI-RS                                                                                        | Same engine in Node/Bun/Deno                                                                         |
+| **Local storage**      | SQLite (`rusqlite`)                                                                            | Vault, cassettes, snapshot index — zero infra, ACID                                                  |
+| **Cloud storage**      | Postgres + S3                                                                                  | Multi-tenant, content-addressed blobs                                                                |
+| **Crypto**             | `ring` (AES-256-GCM, ed25519) + `keyring` crate                                                | Audited primitives; OS keychain integration                                                          |
+| **Content addressing** | BLAKE3                                                                                         | Faster than SHA-256; native Rust                                                                     |
+| **Cassette format**    | JSON (JCS canonical) + zstd + ed25519                                                          | Human-inspectable, compact, verifiable                                                               |
+| **Registry**           | OCI Distribution Spec v1.1 on S3                                                               | Industry standard                                                                                    |
+| **LLM**                | In-house `genatp-llm` trait (Anthropic, OpenAI, Google, Mistral, Ollama, vLLM)                 | No LangChain in core; adapters optional                                                              |
+| **Observability**      | `tracing` + OpenTelemetry (opt-in in Personal/self-hosted tier)                                | Cost attribution per span                                                                            |
+| **CLI**                | `clap`                                                                                         | Subcommands: `serve`, `record`, `run`, `test`, `replay`, `install`                                   |
+
 
 ### 2.2 Rejected alternatives
 
-| Alternative | Why rejected |
-|---|---|
+
+| Alternative                      | Why rejected                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **Playwright as browser driver** | Node.js IPC per action; Cloudflare/DataDome fingerprint Playwright CDP signature; cannot ship custom stealth at CDP level |
-| **Python-only core** | GC latency unacceptable for 50 ms cassette replay steps; GIL limits browser pool concurrency |
-| **TypeScript-only core** | Same IPC/GC issues; harder to ship single static binary for CLI/MCP |
-| **Electron / Puppeteer** | Heavier footprint; weaker stealth story than direct CDP |
-| **Protobuf cassettes (v1)** | Poor debuggability; JSON+zstd meets size targets with inspectability |
-| **LangChain in core** | Version churn, heavy deps, behaviour drift across agent frameworks |
-| **Custom proxy network (v1)** | Capital-intensive; partner with Bright Data / similar for Cloud tier |
+| **Python-only core**             | GC latency unacceptable for 50 ms cassette replay steps; GIL limits browser pool concurrency                              |
+| **TypeScript-only core**         | Same IPC/GC issues; harder to ship single static binary for CLI/MCP                                                       |
+| **Electron / Puppeteer**         | Heavier footprint; weaker stealth story than direct CDP                                                                   |
+| **Protobuf cassettes (v1)**      | Poor debuggability; JSON+zstd meets size targets with inspectability                                                      |
+| **LangChain in core**            | Version churn, heavy deps, behaviour drift across agent frameworks                                                        |
+| **Custom proxy network (v1)**    | Capital-intensive; partner with Bright Data / similar for Cloud tier                                                      |
+
 
 ### 2.3 Resolved open questions (from PRD)
 
-| Question | Decision |
-|---|---|
-| Rust-native browser vs Playwright? | **CDP-native from day one** (Phase 1) |
-| Cassette format? | **JSON (JCS) + zstd + ed25519** |
-| Default LLM in CLI? | **None** — user supplies API key via `genatp init` → OS keychain |
-| Registry topology? | **Central npm-style** for v1; federated mirrors post-v2 |
+
+| Question                           | Decision                                                         |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| Rust-native browser vs Playwright? | **CDP-native from day one** (Phase 1)                            |
+| Cassette format?                   | **JSON (JCS) + zstd + ed25519**                                  |
+| Default LLM in CLI?                | **None** — user supplies API key via `genatp init` → OS keychain |
+| Registry topology?                 | **Central npm-style** for v1; federated mirrors post-v2          |
+
 
 ---
 
@@ -195,15 +205,19 @@ graph BT
     debugger --> core
 ```
 
+
+
 ### 3.3 CI target matrix (all phases)
 
-| Target | OS | Arch |
-|---|---|---|
-| `x86_64-unknown-linux-gnu` | Ubuntu 22.04 | x86_64 |
-| `aarch64-unknown-linux-gnu` | Ubuntu 22.04 | arm64 |
-| `x86_64-apple-darwin` | macOS 14 | x86_64 |
-| `aarch64-apple-darwin` | macOS 14 | arm64 |
-| `x86_64-pc-windows-msvc` | Windows 2022 | x86_64 |
+
+| Target                      | OS           | Arch   |
+| --------------------------- | ------------ | ------ |
+| `x86_64-unknown-linux-gnu`  | Ubuntu 22.04 | x86_64 |
+| `aarch64-unknown-linux-gnu` | Ubuntu 22.04 | arm64  |
+| `x86_64-apple-darwin`       | macOS 14     | x86_64 |
+| `aarch64-apple-darwin`      | macOS 14     | arm64  |
+| `x86_64-pc-windows-msvc`    | Windows 2022 | x86_64 |
+
 
 ---
 
@@ -211,22 +225,24 @@ graph BT
 
 Every phase lists which layers apply. **A phase is not complete until all listed gates are green.**
 
-| Layer | Tooling | When introduced | Merge gate |
-|---|---|---|---|
-| **Unit** | `cargo test`, `cargo nextest`, pytest, vitest | Phase 0 | Required |
-| **Snapshot** | `insta` (Rust), golden files | Phase 2 | Required for parsers/perception |
-| **Property-based** | `proptest`, `hypothesis`, `fast-check` | Phase 2 | Required for diff, vault, budget |
-| **Fuzz** | `cargo-fuzz` | Phase 7 | Required for all deserialisers |
-| **Integration** | Custom fixture server + testcontainers | Phase 1 | Required |
-| **E2E** | Real Chromium + fixture sites + WebVoyager subset | Phase 3 | Required from Phase 4 |
-| **Benchmark** | `criterion` | Phase 1 | >5% hot-path regression blocks merge |
-| **Anti-detection** | bot.sannysoft, fingerprintjs/botd, creepjs | Phase 1 baseline; Phase 11 full | Nightly from Phase 11 |
-| **Security** | `cargo-audit`, `cargo-deny`, `semgrep`, dependency-review | Phase 0 | Every PR |
-| **SBOM** | `cargo-cyclonedx` | Phase 0 | Every release |
-| **Mutation** | `cargo-mutants` | Phase 8 | vault, cassette, atp-spec crates |
-| **Reproducibility** | 5-machine cassette replay | Phase 8 | Phase exit |
-| **Penetration** | Third-party firm | Phase 15 | Cloud GA blocker |
-| **Load** | k6 / Locust against Cloud API | Phase 15 | 10k concurrent sessions |
+
+| Layer               | Tooling                                                   | When introduced                 | Merge gate                           |
+| ------------------- | --------------------------------------------------------- | ------------------------------- | ------------------------------------ |
+| **Unit**            | `cargo test`, `cargo nextest`, pytest, vitest             | Phase 0                         | Required                             |
+| **Snapshot**        | `insta` (Rust), golden files                              | Phase 2                         | Required for parsers/perception      |
+| **Property-based**  | `proptest`, `hypothesis`, `fast-check`                    | Phase 2                         | Required for diff, vault, budget     |
+| **Fuzz**            | `cargo-fuzz`                                              | Phase 7                         | Required for all deserialisers       |
+| **Integration**     | Custom fixture server + testcontainers                    | Phase 1                         | Required                             |
+| **E2E**             | Real Chromium + fixture sites + WebVoyager subset         | Phase 3                         | Required from Phase 4                |
+| **Benchmark**       | `criterion`                                               | Phase 1                         | >5% hot-path regression blocks merge |
+| **Anti-detection**  | bot.sannysoft, fingerprintjs/botd, creepjs                | Phase 1 baseline; Phase 11 full | Nightly from Phase 11                |
+| **Security**        | `cargo-audit`, `cargo-deny`, `semgrep`, dependency-review | Phase 0                         | Every PR                             |
+| **SBOM**            | `cargo-cyclonedx`                                         | Phase 0                         | Every release                        |
+| **Mutation**        | `cargo-mutants`                                           | Phase 8                         | vault, cassette, atp-spec crates     |
+| **Reproducibility** | 5-machine cassette replay                                 | Phase 8                         | Phase exit                           |
+| **Penetration**     | Third-party firm                                          | Phase 15                        | Cloud GA blocker                     |
+| **Load**            | k6 / Locust against Cloud API                             | Phase 15                        | 10k concurrent sessions              |
+
 
 ---
 
@@ -269,26 +285,30 @@ gantt
     Phase17_GA                  :milestone, m17, after p17, 0d
 ```
 
-| Phase | Name | Cal. weeks | Release tag | Owner |
-|---|---|---|---|---|
-| 0 | Foundation | 0–1 | — | Dev A |
-| 1 | Browser substrate | 1–3 | — | Dev A |
-| 2 | Perception engine | 3–5 | — | Dev B |
-| 3 | LLM + Orchestrator | 5–7 | — | Both |
-| 4 | MCP server v0.1 | 7–8 | **v0.1.0** | Dev B |
-| 5 | Python SDK | 8–10 | v0.2.0 | Dev A |
-| 6 | Auth Vault | 10–12 | v0.3.0 | Dev B |
-| 7 | Cassette recording | 12–14 | — | Dev A |
-| 8 | Cassette replay + heal | 14–16 | **v0.5.0** | Both |
-| 9 | ATP Spec | 16–17 | v0.5.1 | Dev B |
-| 10 | TypeScript SDK | 17–19 | v0.6.0 | Dev A |
-| 11 | Stealth engine | 19–21 | v0.7.0 | Dev B |
-| 12 | DOM/Vision switch | 21–22 | v0.7.1 | Dev A |
-| 13 | Time-travel debugger | 22–23 | v0.8.0-pre | Dev B |
-| 14 | Cassette Registry | 23–26 | v0.8.0 | Both |
-| 15 | Cloud private beta | 26–30 | cloud-beta | Both + contractor |
-| 16 | Enterprise prep | 30–36 | enterprise-preview | Dev B + consultant |
-| 17 | v1.0 GA + benchmark | 36–40 | **v1.0.0** | Both |
+
+
+
+| Phase | Name                   | Cal. weeks | Release tag        | Owner              |
+| ----- | ---------------------- | ---------- | ------------------ | ------------------ |
+| 0     | Foundation             | 0–1        | —                  | Dev A              |
+| 1     | Browser substrate      | 1–3        | —                  | Dev A              |
+| 2     | Perception engine      | 3–5        | —                  | Dev B              |
+| 3     | LLM + Orchestrator     | 5–7        | —                  | Both               |
+| 4     | MCP server v0.1        | 7–8        | **v0.1.0**         | Dev B              |
+| 5     | Python SDK             | 8–10       | v0.2.0             | Dev A              |
+| 6     | Auth Vault             | 10–12      | v0.3.0             | Dev B              |
+| 7     | Cassette recording     | 12–14      | —                  | Dev A              |
+| 8     | Cassette replay + heal | 14–16      | **v0.5.0**         | Both               |
+| 9     | ATP Spec               | 16–17      | v0.5.1             | Dev B              |
+| 10    | TypeScript SDK         | 17–19      | v0.6.0             | Dev A              |
+| 11    | Stealth engine         | 19–21      | v0.7.0             | Dev B              |
+| 12    | DOM/Vision switch      | 21–22      | v0.7.1             | Dev A              |
+| 13    | Time-travel debugger   | 22–23      | v0.8.0-pre         | Dev B              |
+| 14    | Cassette Registry      | 23–26      | v0.8.0             | Both               |
+| 15    | Cloud private beta     | 26–30      | cloud-beta         | Both + contractor  |
+| 16    | Enterprise prep        | 30–36      | enterprise-preview | Dev B + consultant |
+| 17    | v1.0 GA + benchmark    | 36–40      | **v1.0.0**         | Both               |
+
 
 ---
 
@@ -298,10 +318,12 @@ gantt
 
 ### Phase 0 — Foundation
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 0–1 |
-| **Goal** | Empty repo compiles, tests, and releases on all 5 targets |
+
+| Field        | Detail                                                    |
+| ------------ | --------------------------------------------------------- |
+| **Calendar** | Week 0–1                                                  |
+| **Goal**     | Empty repo compiles, tests, and releases on all 5 targets |
+
 
 #### Scope
 
@@ -321,18 +343,20 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope |
-|---|---|
-| Unit | `assert!(true)` per crate — proves linkage |
-| Security | `cargo deny check`, `cargo audit` in CI |
-| SBOM | `cargo cyclonedx` on tag (manual first run) |
+
+| Layer    | Scope                                       |
+| -------- | ------------------------------------------- |
+| Unit     | `assert!(true)` per crate — proves linkage  |
+| Security | `cargo deny check`, `cargo audit` in CI     |
+| SBOM     | `cargo cyclonedx` on tag (manual first run) |
+
 
 #### Acceptance criteria
 
-- [ ] `cargo test --workspace` green on 5 targets
-- [ ] `cargo clippy --workspace -- -D warnings` green
-- [ ] Pre-commit installs in < 2 min on fresh clone
-- [ ] Release workflow produces unsigned tarball artifact (smoke)
+- `cargo test --workspace` green on 5 targets
+- `cargo clippy --workspace -- -D warnings` green
+- Pre-commit installs in < 2 min on fresh clone
+- Release workflow produces unsigned tarball artifact (smoke)
 
 #### Exit criteria
 
@@ -342,10 +366,12 @@ gantt
 
 ### Phase 1 — Browser substrate
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 1–3 |
-| **Goal** | CDP-native Chromium control: launch, navigate, a11y tree, cookies |
+
+| Field        | Detail                                                            |
+| ------------ | ----------------------------------------------------------------- |
+| **Calendar** | Week 1–3                                                          |
+| **Goal**     | CDP-native Chromium control: launch, navigate, a11y tree, cookies |
+
 
 #### Scope
 
@@ -366,31 +392,35 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | URL parsing, launch-arg builder, cookie serialisation | 100% on pure functions |
-| Integration | Launch Chrome, navigate `fixtures/sites/hello.html`, fetch a11y tree | CI with `CHROME_PATH` |
-| Benchmark | Cold start → first navigation | **< 800 ms** p95 |
-| Anti-detection | bot.sannysoft.com baseline | Document score; no hard gate yet |
+
+| Layer          | Scope                                                                | Gate                             |
+| -------------- | -------------------------------------------------------------------- | -------------------------------- |
+| Unit           | URL parsing, launch-arg builder, cookie serialisation                | 100% on pure functions           |
+| Integration    | Launch Chrome, navigate `fixtures/sites/hello.html`, fetch a11y tree | CI with `CHROME_PATH`            |
+| Benchmark      | Cold start → first navigation                                        | **< 800 ms** p95                 |
+| Anti-detection | bot.sannysoft.com baseline                                           | Document score; no hard gate yet |
+
 
 #### Acceptance criteria
 
-- [ ] Navigate fixture site and return a11y tree with ≥ 1 interactive element
-- [ ] Pool supports 4 concurrent contexts without leak (valgrind/heaptrack optional)
-- [ ] Demo completes in < 1 s on developer laptop
+- Navigate fixture site and return a11y tree with ≥ 1 interactive element
+- Pool supports 4 concurrent contexts without leak (valgrind/heaptrack optional)
+- Demo completes in < 1 s on developer laptop
 
 #### Exit criteria
 
-**`cargo run --bin genatp_browser_demo` launches Chromium, navigates, fetches a11y tree, closes — under 1 s.**
+`**cargo run --bin genatp_browser_demo` launches Chromium, navigates, fetches a11y tree, closes — under 1 s.**
 
 ---
 
 ### Phase 2 — Perception engine
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 3–5 |
-| **Goal** | Token-optimized snapshots with diff compression |
+
+| Field        | Detail                                          |
+| ------------ | ----------------------------------------------- |
+| **Calendar** | Week 3–5                                        |
+| **Goal**     | Token-optimized snapshots with diff compression |
+
 
 #### Scope
 
@@ -413,20 +443,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Ref assignment stability, diff invertibility | Required |
-| Snapshot | `insta` on 50 fixture pages | Review on intentional change |
-| Property | `proptest`: `apply(diff(a,b), a) == b` | 10k cases |
-| Benchmark | Snapshot latency | **< 250 ms** p95 per page |
-| Benchmark | Token count after compression | **< 800 tokens** avg on fixture suite |
-| CI gate | Token regression | Fail if avg > **850 tokens** |
+
+| Layer     | Scope                                        | Gate                                  |
+| --------- | -------------------------------------------- | ------------------------------------- |
+| Unit      | Ref assignment stability, diff invertibility | Required                              |
+| Snapshot  | `insta` on 50 fixture pages                  | Review on intentional change          |
+| Property  | `proptest`: `apply(diff(a,b), a) == b`       | 10k cases                             |
+| Benchmark | Snapshot latency                             | **< 250 ms** p95 per page             |
+| Benchmark | Token count after compression                | **< 800 tokens** avg on fixture suite |
+| CI gate   | Token regression                             | Fail if avg > **850 tokens**          |
+
 
 #### Acceptance criteria
 
-- [ ] ≥ 90% token reduction vs raw a11y tree on fixture corpus
-- [ ] Diff patch for "click opens dropdown" scenario < 100 tokens
-- [ ] Snapshot store deduplicates identical hashes
+- ≥ 90% token reduction vs raw a11y tree on fixture corpus
+- Diff patch for "click opens dropdown" scenario < 100 tokens
+- Snapshot store deduplicates identical hashes
 
 #### Exit criteria
 
@@ -436,10 +468,12 @@ gantt
 
 ### Phase 3 — LLM client + Orchestrator
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 5–7 |
-| **Goal** | End-to-end agent loop with budget guard |
+
+| Field        | Detail                                  |
+| ------------ | --------------------------------------- |
+| **Calendar** | Week 5–7                                |
+| **Goal**     | End-to-end agent loop with budget guard |
+
 
 #### Scope
 
@@ -462,19 +496,21 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Budget guard never negative; retry bounds | Property tests |
-| Integration | Provider adapters against VCR fixtures | No network in CI default |
-| Integration | Form fill on `fixtures/sites/form.html` via Ollama (optional job) | Nightly |
-| E2E | 5-step task on fixture site | Required |
-| Property | Budget: `sum(charges) <= limit` always | proptest |
+
+| Layer       | Scope                                                             | Gate                     |
+| ----------- | ----------------------------------------------------------------- | ------------------------ |
+| Unit        | Budget guard never negative; retry bounds                         | Property tests           |
+| Integration | Provider adapters against VCR fixtures                            | No network in CI default |
+| Integration | Form fill on `fixtures/sites/form.html` via Ollama (optional job) | Nightly                  |
+| E2E         | 5-step task on fixture site                                       | Required                 |
+| Property    | Budget: `sum(charges) <= limit` always                            | proptest                 |
+
 
 #### Acceptance criteria
 
-- [ ] 5-step form-fill task completes on fixture site
-- [ ] Budget aborts run before exceeding declared limit
-- [ ] Event log contains ordered entries for every step
+- 5-step form-fill task completes on fixture site
+- Budget aborts run before exceeding declared limit
+- Event log contains ordered entries for every step
 
 #### Exit criteria
 
@@ -484,11 +520,13 @@ gantt
 
 ### Phase 4 — MCP server v0.1 (FIRST PUBLIC RELEASE)
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 7–8 |
-| **Release** | **v0.1.0** |
-| **Goal** | Any MCP client can browse the web via genATP |
+
+| Field        | Detail                                       |
+| ------------ | -------------------------------------------- |
+| **Calendar** | Week 7–8                                     |
+| **Release**  | **v0.1.0**                                   |
+| **Goal**     | Any MCP client can browse the web via genATP |
+
 
 #### Scope
 
@@ -509,20 +547,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Tool schema JSON matches MCP spec examples | Required |
-| Integration | stdio round-trip: call each tool | Required |
-| E2E | Claude Desktop: "find 5 PRs on github.com" (manual checklist + recorded demo) | Pre-release sign-off |
-| E2E | WebVoyager **subset** (50 tasks) | ≥ 70% success (baseline) |
-| Security | No secrets in logs; API keys only from env/keychain | Review |
+
+| Layer       | Scope                                                                         | Gate                     |
+| ----------- | ----------------------------------------------------------------------------- | ------------------------ |
+| Unit        | Tool schema JSON matches MCP spec examples                                    | Required                 |
+| Integration | stdio round-trip: call each tool                                              | Required                 |
+| E2E         | Claude Desktop: "find 5 PRs on github.com" (manual checklist + recorded demo) | Pre-release sign-off     |
+| E2E         | WebVoyager **subset** (50 tasks)                                              | ≥ 70% success (baseline) |
+| Security    | No secrets in logs; API keys only from env/keychain                           | Review                   |
+
 
 #### Acceptance criteria
 
-- [ ] All tools callable via MCP Inspector
-- [ ] README quickstart works with Claude Desktop
-- [ ] Published GitHub release with binaries for 5 targets
-- [ ] Published benchmark subset results (honest, reproducible)
+- All tools callable via MCP Inspector
+- README quickstart works with Claude Desktop
+- Published GitHub release with binaries for 5 targets
+- Published benchmark subset results (honest, reproducible)
 
 #### Exit criteria
 
@@ -532,11 +572,13 @@ gantt
 
 ### Phase 5 — Python SDK
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 8–10 |
-| **Release** | v0.2.0 |
-| **Goal** | `pip install genatp` — PRD quickstart works |
+
+| Field        | Detail                                      |
+| ------------ | ------------------------------------------- |
+| **Calendar** | Week 8–10                                   |
+| **Release**  | v0.2.0                                      |
+| **Goal**     | `pip install genatp` — PRD quickstart works |
+
 
 #### Scope
 
@@ -556,33 +598,37 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | pytest for pure Python wrapper logic | Required |
-| Integration | `Agent.run` against fixture site | Required |
-| Matrix | Python 3.10, 3.11, 3.12 × 5 platforms | All green |
-| Smoke | `pip install genatp && python examples/quickstart.py` | Release gate |
+
+| Layer       | Scope                                                 | Gate         |
+| ----------- | ----------------------------------------------------- | ------------ |
+| Unit        | pytest for pure Python wrapper logic                  | Required     |
+| Integration | `Agent.run` against fixture site                      | Required     |
+| Matrix      | Python 3.10, 3.11, 3.12 × 5 platforms                 | All green    |
+| Smoke       | `pip install genatp && python examples/quickstart.py` | Release gate |
+
 
 #### Acceptance criteria
 
-- [ ] PRD 5-line quickstart passes on all 5 CI targets (Linux x86_64/aarch64, macOS x86_64/aarch64, Windows x86_64)
-- [ ] Wheels on PyPI for all platforms (or clear documented exceptions in release notes)
-- [ ] LangChain adapter exports 8+ tools and integration test against fixture site passes
-- [ ] Async API verified with `pytest-asyncio` round-trip
+- PRD 5-line quickstart passes on all 5 CI targets (Linux x86_64/aarch64, macOS x86_64/aarch64, Windows x86_64)
+- Wheels on PyPI for all platforms (or clear documented exceptions in release notes)
+- LangChain adapter exports 8+ tools and integration test against fixture site passes
+- Async API verified with `pytest-asyncio` round-trip
 
 #### Exit criteria
 
-**`pip install genatp` works on all 5 platforms; PRD quickstart passes.**
+`**pip install genatp` works on all 5 platforms; PRD quickstart passes.**
 
 ---
 
 ### Phase 6 — Auth Vault
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 10–12 |
-| **Release** | v0.3.0 |
-| **Goal** | Login once, stay logged in across restarts |
+
+| Field        | Detail                                     |
+| ------------ | ------------------------------------------ |
+| **Calendar** | Week 10–12                                 |
+| **Release**  | v0.3.0                                     |
+| **Goal**     | Login once, stay logged in across restarts |
+
 
 #### Scope
 
@@ -603,20 +649,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | AES roundtrip, DEK isolation | Required |
-| Property | Decrypt wrong domain DEK fails | proptest |
-| Integration | Real OS keychain on macOS, Windows, Linux CI | Per-OS jobs |
-| Security | Vault file bytes un-decryptable without keychain | Required |
-| Benchmark | Unlock latency | **< 100 ms** p95 |
-| Mutation | `cargo-mutants` on vault crate | ≥ 80% score |
+
+| Layer       | Scope                                            | Gate             |
+| ----------- | ------------------------------------------------ | ---------------- |
+| Unit        | AES roundtrip, DEK isolation                     | Required         |
+| Property    | Decrypt wrong domain DEK fails                   | proptest         |
+| Integration | Real OS keychain on macOS, Windows, Linux CI     | Per-OS jobs      |
+| Security    | Vault file bytes un-decryptable without keychain | Required         |
+| Benchmark   | Unlock latency                                   | **< 100 ms** p95 |
+| Mutation    | `cargo-mutants` on vault crate                   | ≥ 80% score      |
+
 
 #### Acceptance criteria
 
-- [ ] Login to fixture auth site → kill process → restart → still authed
-- [ ] Revoke capability → next run prompts again
-- [ ] Vault file never contains plaintext cookies
+- Login to fixture auth site → kill process → restart → still authed
+- Revoke capability → next run prompts again
+- Vault file never contains plaintext cookies
 
 #### Exit criteria
 
@@ -626,10 +674,12 @@ gantt
 
 ### Phase 7 — Cassette recording
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 12–14 |
-| **Goal** | Record successful runs as signed, versioned cassettes |
+
+| Field        | Detail                                                |
+| ------------ | ----------------------------------------------------- |
+| **Calendar** | Week 12–14                                            |
+| **Goal**     | Record successful runs as signed, versioned cassettes |
+
 
 #### Scope
 
@@ -648,19 +698,21 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Serialize roundtrip | Required |
-| Fuzz | Malformed cassette bytes | 24h job, no crashes |
-| Property | Every successful orchestrator run → valid cassette | Required |
-| Snapshot | Golden cassette files | Review on change |
-| Security | Invalid signature rejected | Required |
+
+| Layer    | Scope                                              | Gate                |
+| -------- | -------------------------------------------------- | ------------------- |
+| Unit     | Serialize roundtrip                                | Required            |
+| Fuzz     | Malformed cassette bytes                           | 24h job, no crashes |
+| Property | Every successful orchestrator run → valid cassette | Required            |
+| Snapshot | Golden cassette files                              | Review on change    |
+| Security | Invalid signature rejected                         | Required            |
+
 
 #### Acceptance criteria
 
-- [ ] Record github login + repo lookup → file < 10 KB
-- [ ] Cassette human-readable after zstd decompress
-- [ ] Signature verifies with project public key
+- Record github login + repo lookup → file < 10 KB
+- Cassette human-readable after zstd decompress
+- Signature verifies with project public key
 
 #### Exit criteria
 
@@ -670,11 +722,13 @@ gantt
 
 ### Phase 8 — Cassette replay + self-heal
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 14–16 |
-| **Release** | **v0.5.0** |
-| **Goal** | Deterministic replay with 0 LLM tokens; auto-heal on drift |
+
+| Field        | Detail                                                     |
+| ------------ | ---------------------------------------------------------- |
+| **Calendar** | Week 14–16                                                 |
+| **Release**  | **v0.5.0**                                                 |
+| **Goal**     | Deterministic replay with 0 LLM tokens; auto-heal on drift |
+
 
 #### Scope
 
@@ -688,20 +742,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| E2E | 20 cassettes replay on fixture sites | 100% pass |
-| E2E | Intentional DOM mutations (rename, wrap, reorder) | **≥ 80%** heal success |
-| Benchmark | Replay step latency | **< 50 ms** p95 |
-| Token | Replay without drift | **0 LLM tokens** |
-| Reproducibility | Same cassette on 5 CI machines | Bit-identical results |
-| Mutation | `cargo-mutants` on cassette crate | ≥ 80% |
+
+| Layer           | Scope                                             | Gate                   |
+| --------------- | ------------------------------------------------- | ---------------------- |
+| E2E             | 20 cassettes replay on fixture sites              | 100% pass              |
+| E2E             | Intentional DOM mutations (rename, wrap, reorder) | **≥ 80%** heal success |
+| Benchmark       | Replay step latency                               | **< 50 ms** p95        |
+| Token           | Replay without drift                              | **0 LLM tokens**       |
+| Reproducibility | Same cassette on 5 CI machines                    | Bit-identical results  |
+| Mutation        | `cargo-mutants` on cassette crate                 | ≥ 80%                  |
+
 
 #### Acceptance criteria
 
-- [ ] Replay 100× without drift → 0 LLM calls
-- [ ] Drift on step 4 → heal → v1.1 written automatically
-- [ ] Hash chain invalid if cassette tampered
+- Replay 100× without drift → 0 LLM calls
+- Drift on step 4 → heal → v1.1 written automatically
+- Hash chain invalid if cassette tampered
 
 #### Exit criteria
 
@@ -711,11 +767,13 @@ gantt
 
 ### Phase 9 — ATP Spec parser + runner
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 16–17 |
-| **Release** | v0.5.1 |
-| **Goal** | Declarative YAML tests and automations |
+
+| Field        | Detail                                 |
+| ------------ | -------------------------------------- |
+| **Calendar** | Week 16–17                             |
+| **Release**  | v0.5.1                                 |
+| **Goal**     | Declarative YAML tests and automations |
+
 
 #### Scope
 
@@ -730,18 +788,20 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Parser on valid/invalid YAML | Required |
-| Fuzz | Malformed YAML bytes | No panics |
-| Snapshot | YAML → IR mapping | insta |
-| E2E | 10 representative specs | All green in example CI |
+
+| Layer    | Scope                        | Gate                    |
+| -------- | ---------------------------- | ----------------------- |
+| Unit     | Parser on valid/invalid YAML | Required                |
+| Fuzz     | Malformed YAML bytes         | No panics               |
+| Snapshot | YAML → IR mapping            | insta                   |
+| E2E      | 10 representative specs      | All green in example CI |
+
 
 #### Acceptance criteria
 
-- [ ] `atp test` returns exit code 1 on assertion failure
-- [ ] JUnit XML consumed by GitHub Actions annotations
-- [ ] `on_change: heal` triggers cassette bump in CI
+- `atp test` returns exit code 1 on assertion failure
+- JUnit XML consumed by GitHub Actions annotations
+- `on_change: heal` triggers cassette bump in CI
 
 #### Exit criteria
 
@@ -751,11 +811,13 @@ gantt
 
 ### Phase 10 — TypeScript SDK
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 17–19 |
-| **Release** | v0.6.0 |
-| **Goal** | `npm install genatp` at parity with Python |
+
+| Field        | Detail                                     |
+| ------------ | ------------------------------------------ |
+| **Calendar** | Week 17–19                                 |
+| **Release**  | v0.6.0                                     |
+| **Goal**     | `npm install genatp` at parity with Python |
+
 
 #### Scope
 
@@ -768,35 +830,39 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | vitest | Required |
-| Matrix | Node 18, 20, 22 + Bun smoke + Deno smoke | Required |
-| Integration | TS quickstart | Required |
-| Build | 4 platforms × 2 archs | All green |
-| Parity | TS and Python SDK behave identically on shared contract tests | Required |
+
+| Layer       | Scope                                                         | Gate      |
+| ----------- | ------------------------------------------------------------- | --------- |
+| Unit        | vitest                                                        | Required  |
+| Matrix      | Node 18, 20, 22 + Bun smoke + Deno smoke                      | Required  |
+| Integration | TS quickstart                                                 | Required  |
+| Build       | 4 platforms × 2 archs                                         | All green |
+| Parity      | TS and Python SDK behave identically on shared contract tests | Required  |
+
 
 #### Acceptance criteria
 
-- [ ] `npm install genatp` works on all supported platforms
-- [ ] PRD TS quickstart passes
-- [ ] Type definitions (`.d.ts`) cover 100% of public API; no `any` leaks
-- [ ] Parity contract tests pass against Python SDK on identical fixture inputs
-- [ ] npm package published with provenance attestation
+- `npm install genatp` works on all supported platforms
+- PRD TS quickstart passes
+- Type definitions (`.d.ts`) cover 100% of public API; no `any` leaks
+- Parity contract tests pass against Python SDK on identical fixture inputs
+- npm package published with provenance attestation
 
 #### Exit criteria
 
-**`npm install genatp` works everywhere; PRD TS quickstart passes.**
+`**npm install genatp` works everywhere; PRD TS quickstart passes.**
 
 ---
 
 ### Phase 11 — Stealth engine
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 19–21 |
-| **Release** | v0.7.0 |
-| **Goal** | Pass common bot detection; clear Cloudflare/DataDome on test sites |
+
+| Field        | Detail                                                             |
+| ------------ | ------------------------------------------------------------------ |
+| **Calendar** | Week 19–21                                                         |
+| **Release**  | v0.7.0                                                             |
+| **Goal**     | Pass common bot detection; clear Cloudflare/DataDome on test sites |
+
 
 #### Scope
 
@@ -813,22 +879,24 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Anti-detection | bot.sannysoft.com | **100%** pass |
-| Anti-detection | fingerprintjs/botd | **≥ 90%** |
-| Anti-detection | creepjs | Realistic-score band (document thresholds) |
-| Nightly | Full adversarial suite | No regression vs baseline |
-| E2E | Cloudflare challenge on whitelisted test property | Consistent pass |
-| E2E | DataDome challenge on whitelisted test property | Consistent pass |
+
+| Layer          | Scope                                             | Gate                                       |
+| -------------- | ------------------------------------------------- | ------------------------------------------ |
+| Anti-detection | bot.sannysoft.com                                 | **100%** pass                              |
+| Anti-detection | fingerprintjs/botd                                | **≥ 90%**                                  |
+| Anti-detection | creepjs                                           | Realistic-score band (document thresholds) |
+| Nightly        | Full adversarial suite                            | No regression vs baseline                  |
+| E2E            | Cloudflare challenge on whitelisted test property | Consistent pass                            |
+| E2E            | DataDome challenge on whitelisted test property   | Consistent pass                            |
+
 
 #### Acceptance criteria
 
-- [ ] Fingerprint pool ships with ≥ 25 realistic profiles
-- [ ] Mouse-curve and typing-delay distributions documented and randomised per session
-- [ ] No detectable `navigator.webdriver` or other automation flags
-- [ ] Nightly adversarial suite runs unattended and posts results to internal dashboard
-- [ ] WebVoyager subset success rate improves ≥ 10 points vs pre-phase baseline
+- Fingerprint pool ships with ≥ 25 realistic profiles
+- Mouse-curve and typing-delay distributions documented and randomised per session
+- No detectable `navigator.webdriver` or other automation flags
+- Nightly adversarial suite runs unattended and posts results to internal dashboard
+- WebVoyager subset success rate improves ≥ 10 points vs pre-phase baseline
 
 #### Exit criteria
 
@@ -838,11 +906,13 @@ gantt
 
 ### Phase 12 — DOM/Vision auto-switch
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 21–22 |
-| **Release** | v0.7.1 |
-| **Goal** | Transparent fallback to vision on canvas/shadow-DOM pages |
+
+| Field        | Detail                                                    |
+| ------------ | --------------------------------------------------------- |
+| **Calendar** | Week 21–22                                                |
+| **Release**  | v0.7.1                                                    |
+| **Goal**     | Transparent fallback to vision on canvas/shadow-DOM pages |
+
 
 #### Scope
 
@@ -853,20 +923,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Unit | Policy decision tree | 100% branch coverage |
-| E2E | Canvas fixture page → vision route | Required |
-| E2E | Normal form page → DOM route only | 0 vision calls |
-| Benchmark | Vision step end-to-end | **< 1.5 s** p95 |
-| Benchmark | Vision token cost | < 14k tokens per step p95 |
+
+| Layer     | Scope                              | Gate                      |
+| --------- | ---------------------------------- | ------------------------- |
+| Unit      | Policy decision tree               | 100% branch coverage      |
+| E2E       | Canvas fixture page → vision route | Required                  |
+| E2E       | Normal form page → DOM route only  | 0 vision calls            |
+| Benchmark | Vision step end-to-end             | **< 1.5 s** p95           |
+| Benchmark | Vision token cost                  | < 14k tokens per step p95 |
+
 
 #### Acceptance criteria
 
-- [ ] Policy correctly routes 100% of fixture pages (50 DOM, 10 canvas, 5 shadow-DOM)
-- [ ] Agent API shape unchanged between DOM and vision modes (no behavioural drift)
-- [ ] Vision adapter supports Anthropic Claude, OpenAI GPT-4o, Google Gemini
-- [ ] Coordinate-based actions verified on at least one canvas fixture page
+- Policy correctly routes 100% of fixture pages (50 DOM, 10 canvas, 5 shadow-DOM)
+- Agent API shape unchanged between DOM and vision modes (no behavioural drift)
+- Vision adapter supports Anthropic Claude, OpenAI GPT-4o, Google Gemini
+- Coordinate-based actions verified on at least one canvas fixture page
 
 #### Exit criteria
 
@@ -876,11 +948,13 @@ gantt
 
 ### Phase 13 — Time-travel debugger
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 22–23 |
-| **Release** | v0.8.0-pre |
-| **Goal** | Scrub through any failed run frame-by-frame |
+
+| Field        | Detail                                      |
+| ------------ | ------------------------------------------- |
+| **Calendar** | Week 22–23                                  |
+| **Release**  | v0.8.0-pre                                  |
+| **Goal**     | Scrub through any failed run frame-by-frame |
+
 
 #### Scope
 
@@ -893,20 +967,22 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Property | Event log hash chain integrity | proptest |
-| E2E | Record → kill → restore at step N | Required |
-| UI | Playwright tests on debugger UI | Required |
-| Performance | Snapshot blob retrieval | < 100 ms p95 |
+
+| Layer       | Scope                             | Gate         |
+| ----------- | --------------------------------- | ------------ |
+| Property    | Event log hash chain integrity    | proptest     |
+| E2E         | Record → kill → restore at step N | Required     |
+| UI          | Playwright tests on debugger UI   | Required     |
+| Performance | Snapshot blob retrieval           | < 100 ms p95 |
+
 
 #### Acceptance criteria
 
-- [ ] Any past run reproducible step-by-step from event log + CAS
-- [ ] Web UI loads timeline for a 100-step run in < 1 s
-- [ ] Diff viewer highlights snapshot changes between adjacent steps
-- [ ] CLI `atp replay <run_id> --at N` returns a usable snapshot for any N
-- [ ] Slack webhook example runbook documented
+- Any past run reproducible step-by-step from event log + CAS
+- Web UI loads timeline for a 100-step run in < 1 s
+- Diff viewer highlights snapshot changes between adjacent steps
+- CLI `atp replay <run_id> --at N` returns a usable snapshot for any N
+- Slack webhook example runbook documented
 
 #### Exit criteria
 
@@ -916,11 +992,13 @@ gantt
 
 ### Phase 14 — Cassette Registry
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 23–26 |
-| **Release** | v0.8.0 |
-| **Goal** | Publish and install community cassettes with verified signatures |
+
+| Field        | Detail                                                           |
+| ------------ | ---------------------------------------------------------------- |
+| **Calendar** | Week 23–26                                                       |
+| **Release**  | v0.8.0                                                           |
+| **Goal**     | Publish and install community cassettes with verified signatures |
+
 
 #### Scope
 
@@ -934,22 +1012,24 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Conformance | OCI distribution spec tests | Required |
-| Security | Malicious cassette cannot access undeclared vault domain | Required |
-| Security | Capability prompt fires for every undeclared resource | Required |
-| Fuzz | Manifest parser | No panics |
-| E2E | Publish on machine A → install on machine B → run | Required |
-| E2E | Verified-publisher cassette auto-runs; self-signed warns; unsigned blocked | Required |
+
+| Layer       | Scope                                                                      | Gate      |
+| ----------- | -------------------------------------------------------------------------- | --------- |
+| Conformance | OCI distribution spec tests                                                | Required  |
+| Security    | Malicious cassette cannot access undeclared vault domain                   | Required  |
+| Security    | Capability prompt fires for every undeclared resource                      | Required  |
+| Fuzz        | Manifest parser                                                            | No panics |
+| E2E         | Publish on machine A → install on machine B → run                          | Required  |
+| E2E         | Verified-publisher cassette auto-runs; self-signed warns; unsigned blocked | Required  |
+
 
 #### Acceptance criteria
 
-- [ ] Trust ladder enforced: unsigned blocked, self-signed warns, org-signed auto-runs within org, verified auto-runs
-- [ ] `atp install` shows signer, capabilities, and version diff before install
-- [ ] Semver resolution behaves like npm (`^`, `~`, exact, prerelease tags)
-- [ ] Self-host Docker image + Helm chart stub builds and runs locally
-- [ ] New publishers cannot earn "verified" tag for 24h after first publish (publisher cooldown)
+- Trust ladder enforced: unsigned blocked, self-signed warns, org-signed auto-runs within org, verified auto-runs
+- `atp install` shows signer, capabilities, and version diff before install
+- Semver resolution behaves like npm (`^`, `~`, exact, prerelease tags)
+- Self-host Docker image + Helm chart stub builds and runs locally
+- New publishers cannot earn "verified" tag for 24h after first publish (publisher cooldown)
 
 #### Exit criteria
 
@@ -959,11 +1039,13 @@ gantt
 
 ### Phase 15 — genATP Cloud private beta
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 26–30 |
-| **Release** | cloud-beta |
-| **Goal** | 50 users on managed infrastructure for 4 weeks |
+
+| Field        | Detail                                         |
+| ------------ | ---------------------------------------------- |
+| **Calendar** | Week 26–30                                     |
+| **Release**  | cloud-beta                                     |
+| **Goal**     | 50 users on managed infrastructure for 4 weeks |
+
 
 #### Scope
 
@@ -977,23 +1059,25 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Integration | API parity with local MCP | Contract tests |
-| Load | 10,000 concurrent sessions | p99 < 2s snapshot latency |
-| Chaos | Pod kill, network partition | Self-heal < 30s |
-| Security | Third-party penetration test | No critical findings open |
-| Isolation | Tenant A cannot read tenant B vault | Required |
-| Billing | Stripe metered events reconcile to engine telemetry | < 0.1% drift |
+
+| Layer       | Scope                                               | Gate                      |
+| ----------- | --------------------------------------------------- | ------------------------- |
+| Integration | API parity with local MCP                           | Contract tests            |
+| Load        | 10,000 concurrent sessions                          | p99 < 2s snapshot latency |
+| Chaos       | Pod kill, network partition                         | Self-heal < 30s           |
+| Security    | Third-party penetration test                        | No critical findings open |
+| Isolation   | Tenant A cannot read tenant B vault                 | Required                  |
+| Billing     | Stripe metered events reconcile to engine telemetry | < 0.1% drift              |
+
 
 #### Acceptance criteria
 
-- [ ] API endpoints feature-flagged for graceful rollouts
-- [ ] HSM-backed vault attestation document published to customers
-- [ ] Dashboard supports usage metrics, API key rotation, and team membership
-- [ ] Residential-proxy partner integrated with per-session rotation
-- [ ] Disaster-recovery runbook tested (RPO < 1 h, RTO < 4 h)
-- [ ] Public status page operational at `status.genatp.dev`
+- API endpoints feature-flagged for graceful rollouts
+- HSM-backed vault attestation document published to customers
+- Dashboard supports usage metrics, API key rotation, and team membership
+- Residential-proxy partner integrated with per-session rotation
+- Disaster-recovery runbook tested (RPO < 1 h, RTO < 4 h)
+- Public status page operational at `status.genatp.dev`
 
 #### Exit criteria
 
@@ -1003,11 +1087,13 @@ gantt
 
 ### Phase 16 — Enterprise prep
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 30–36 |
-| **Release** | enterprise-preview |
-| **Goal** | First enterprise contract; SOC 2 Type I |
+
+| Field        | Detail                                  |
+| ------------ | --------------------------------------- |
+| **Calendar** | Week 30–36                              |
+| **Release**  | enterprise-preview                      |
+| **Goal**     | First enterprise contract; SOC 2 Type I |
+
 
 #### Scope
 
@@ -1020,22 +1106,24 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Audit | SOC 2 dry-run with consultant | Pass |
-| SSO | Okta + Azure AD + Google conformance | Required |
-| Deploy | Air-gapped install on fresh VM | Required |
-| Docs | SECURITY.md, DATA_PROCESSING.md, DPA | Legal review |
-| SIEM | Audit log export verified against Splunk, Datadog, generic S3 sink | Required |
+
+| Layer  | Scope                                                              | Gate         |
+| ------ | ------------------------------------------------------------------ | ------------ |
+| Audit  | SOC 2 dry-run with consultant                                      | Pass         |
+| SSO    | Okta + Azure AD + Google conformance                               | Required     |
+| Deploy | Air-gapped install on fresh VM                                     | Required     |
+| Docs   | SECURITY.md, DATA_PROCESSING.md, DPA                               | Legal review |
+| SIEM   | Audit log export verified against Splunk, Datadog, generic S3 sink | Required     |
+
 
 #### Acceptance criteria
 
-- [ ] All SOC 2 Type I controls have documented evidence
-- [ ] SSO login + SCIM provisioning tested end-to-end with all three IdPs
-- [ ] On-prem Helm chart installs cleanly in air-gapped environment
-- [ ] Customer cassette signing policy enforced (only org keys accepted)
-- [ ] 24/7 paging rotation live; runbooks published in `docs/runbooks/`
-- [ ] Status page + public incident history operational
+- All SOC 2 Type I controls have documented evidence
+- SSO login + SCIM provisioning tested end-to-end with all three IdPs
+- On-prem Helm chart installs cleanly in air-gapped environment
+- Customer cassette signing policy enforced (only org keys accepted)
+- 24/7 paging rotation live; runbooks published in `docs/runbooks/`
+- Status page + public incident history operational
 
 #### Exit criteria
 
@@ -1045,11 +1133,13 @@ gantt
 
 ### Phase 17 — v1.0 GA + WebVoyager benchmark
 
-| Field | Detail |
-|---|---|
-| **Calendar** | Week 36–40 |
-| **Release** | **v1.0.0** |
-| **Goal** | Public benchmark credibility + launch |
+
+| Field        | Detail                                |
+| ------------ | ------------------------------------- |
+| **Calendar** | Week 36–40                            |
+| **Release**  | **v1.0.0**                            |
+| **Goal**     | Public benchmark credibility + launch |
+
 
 #### Scope
 
@@ -1062,21 +1152,23 @@ gantt
 
 #### Testing matrix
 
-| Layer | Scope | Gate |
-|---|---|---|
-| Benchmark | WebVoyager success | **≥ 85%** |
-| Benchmark | Avg tokens per 20-step task | **≤ 35,000** |
-| Reproducibility | Independent re-run from methodology repo | Within 2% of published numbers |
-| Release | All Phase 0–16 gates still green | Required |
-| Security | Final third-party security review for v1.0 | No high-severity open |
+
+| Layer           | Scope                                      | Gate                           |
+| --------------- | ------------------------------------------ | ------------------------------ |
+| Benchmark       | WebVoyager success                         | **≥ 85%**                      |
+| Benchmark       | Avg tokens per 20-step task                | **≤ 35,000**                   |
+| Reproducibility | Independent re-run from methodology repo   | Within 2% of published numbers |
+| Release         | All Phase 0–16 gates still green           | Required                       |
+| Security        | Final third-party security review for v1.0 | No high-severity open          |
+
 
 #### Acceptance criteria
 
-- [ ] Public benchmark dashboard live at `genatp.dev/bench`
-- [ ] Methodology repo runnable by third party from a single `make benchmark` command
-- [ ] Comparison numbers verified against published browser-use, Stagehand, Playwright MCP results
-- [ ] Migration guides published for all v0.x → v1.0 breaking changes
-- [ ] Launch assets shipped: blog post, demo video, HN draft, Product Hunt page
+- Public benchmark dashboard live at `genatp.dev/bench`
+- Methodology repo runnable by third party from a single `make benchmark` command
+- Comparison numbers verified against published browser-use, Stagehand, Playwright MCP results
+- Migration guides published for all v0.x → v1.0 breaking changes
+- Launch assets shipped: blog post, demo video, HN draft, Product Hunt page
 
 #### Exit criteria
 
@@ -1101,17 +1193,19 @@ gantt
 
 ### 7.3 Security
 
-| Control | Frequency |
-|---|---|
-| `cargo audit` | Every PR |
-| `cargo deny` | Every PR |
-| `semgrep` | Every PR |
-| GitHub dependency-review | Every PR |
-| `cargo vet` | Weekly (vault, crypto deps) |
-| `cargo-mutants` | Phase 8+ on critical crates |
-| SBOM (`cargo cyclonedx`) | Every release |
-| Third-party pen test | Before Cloud GA |
-| Quarterly security review | Starting Phase 11 |
+
+| Control                   | Frequency                   |
+| ------------------------- | --------------------------- |
+| `cargo audit`             | Every PR                    |
+| `cargo deny`              | Every PR                    |
+| `semgrep`                 | Every PR                    |
+| GitHub dependency-review  | Every PR                    |
+| `cargo vet`               | Weekly (vault, crypto deps) |
+| `cargo-mutants`           | Phase 8+ on critical crates |
+| SBOM (`cargo cyclonedx`)  | Every release               |
+| Third-party pen test      | Before Cloud GA             |
+| Quarterly security review | Starting Phase 11           |
+
 
 ### 7.4 Performance
 
@@ -1128,13 +1222,15 @@ gantt
 
 Template: `docs/adr/0000-template.md`
 
-| ADR | Topic | By phase |
-|---|---|---|
-| ADR-001 | Rust + CDP over Playwright | Phase 0 |
-| ADR-002 | Cassette format (JSON+zstd) | Phase 7 |
-| ADR-003 | Vault key hierarchy | Phase 6 |
-| ADR-004 | OCI registry choice | Phase 14 |
+
+| ADR     | Topic                                        | By phase |
+| ------- | -------------------------------------------- | -------- |
+| ADR-001 | Rust + CDP over Playwright                   | Phase 0  |
+| ADR-002 | Cassette format (JSON+zstd)                  | Phase 7  |
+| ADR-003 | Vault key hierarchy                          | Phase 6  |
+| ADR-004 | OCI registry choice                          | Phase 14 |
 | ADR-005 | Stealth strategy (runtime vs patched binary) | Phase 11 |
+
 
 ---
 
@@ -1142,65 +1238,73 @@ Template: `docs/adr/0000-template.md`
 
 ### 8.1 Branches
 
-| Branch | Purpose |
-|---|---|
-| `main` | Always releasable; protected |
-| `dev` | Integration branch; nightly builds |
-| `feature/*` | Short-lived feature branches |
-| `release/vX.Y` | Stabilisation before tag |
+
+| Branch         | Purpose                            |
+| -------------- | ---------------------------------- |
+| `main`         | Always releasable; protected       |
+| `dev`          | Integration branch; nightly builds |
+| `feature/`*    | Short-lived feature branches       |
+| `release/vX.Y` | Stabilisation before tag           |
+
 
 ### 8.2 Cadence
 
-| Type | Frequency | Audience |
-|---|---|---|
-| Nightly | Every weekday from `dev` | Internal |
-| Pre-release | Weekly `v0.x.y-pre.N` on `dev` | Early adopters |
-| Stable minor | End of each phase | General |
-| Patch | On demand; **48h SLO** for critical security | All |
+
+| Type         | Frequency                                    | Audience       |
+| ------------ | -------------------------------------------- | -------------- |
+| Nightly      | Every weekday from `dev`                     | Internal       |
+| Pre-release  | Weekly `v0.x.y-pre.N` on `dev`               | Early adopters |
+| Stable minor | End of each phase                            | General        |
+| Patch        | On demand; **48h SLO** for critical security | All            |
+
 
 ### 8.3 Version mapping
 
-| Tag | Phases included |
-|---|---|
-| v0.1.0 | 0–4 |
-| v0.2.0 | 5 |
-| v0.3.0 | 6 |
-| v0.5.0 | 7–8 |
-| v0.5.1 | 9 |
-| v0.6.0 | 10 |
-| v0.7.0 | 11 |
-| v0.7.1 | 12 |
-| v0.8.0 | 13–14 |
-| cloud-beta | 15 |
-| enterprise-preview | 16 |
-| **v1.0.0** | 17 |
+
+| Tag                | Phases included |
+| ------------------ | --------------- |
+| v0.1.0             | 0–4             |
+| v0.2.0             | 5               |
+| v0.3.0             | 6               |
+| v0.5.0             | 7–8             |
+| v0.5.1             | 9               |
+| v0.6.0             | 10              |
+| v0.7.0             | 11              |
+| v0.7.1             | 12              |
+| v0.8.0             | 13–14           |
+| cloud-beta         | 15              |
+| enterprise-preview | 16              |
+| **v1.0.0**         | 17              |
+
 
 ### 8.4 Release checklist (every stable tag)
 
-- [ ] CHANGELOG updated (release-please)
-- [ ] All CI matrices green
-- [ ] Benchmark report attached to release notes
-- [ ] SBOM published as release asset
-- [ ] PyPI + npm + GitHub binaries published
-- [ ] Migration guide if breaking
-- [ ] SECURITY.md reviewed
+- CHANGELOG updated (release-please)
+- All CI matrices green
+- Benchmark report attached to release notes
+- SBOM published as release asset
+- PyPI + npm + GitHub binaries published
+- Migration guide if breaking
+- SECURITY.md reviewed
 
 ---
 
 ## 9. Risk register
 
-| ID | Risk | L | I | Mitigation | Owner |
-|---|---|---|---|---|---|
-| R1 | Chromium build pipeline delays stealth | M | H | Runtime CDP overrides until patched binary ready | Dev B |
-| R2 | Malicious registry cassette | M | H | Mandatory signing, capability sandbox, 24h publisher cooldown | Dev A |
-| R3 | Anti-bot arms race | H | M | Nightly adversarial suite; dedicated owner post-Phase 11 | Dev B |
-| R4 | LLM provider API drift | M | M | VCR fixtures + trait abstraction; new provider < 1 day | Dev A |
-| R5 | `chromiumoxide` upstream breakage | M | H | Soft-fork; pin CDP protocol version | Dev A |
-| R6 | 2-person bus factor | H | H | ADRs, docs, no tribal knowledge; contractor for Cloud infra | Both |
-| R7 | WebVoyager score below 85% at GA | M | H | Start subset benchmarking Phase 4; iterate weekly from Phase 11 | Both |
-| R8 | Competitor ships cassette-like feature | M | M | Registry network effect + signed cassettes moat | Both |
-| R9 | SOC 2 audit failure | L | H | Consultant from Phase 15; dry-run Phase 16 | Dev B |
-| R10 | Token metrics disputed publicly | M | M | Open methodology repo; reproducible scripts | Dev A |
+
+| ID  | Risk                                   | L   | I   | Mitigation                                                      | Owner |
+| --- | -------------------------------------- | --- | --- | --------------------------------------------------------------- | ----- |
+| R1  | Chromium build pipeline delays stealth | M   | H   | Runtime CDP overrides until patched binary ready                | Dev B |
+| R2  | Malicious registry cassette            | M   | H   | Mandatory signing, capability sandbox, 24h publisher cooldown   | Dev A |
+| R3  | Anti-bot arms race                     | H   | M   | Nightly adversarial suite; dedicated owner post-Phase 11        | Dev B |
+| R4  | LLM provider API drift                 | M   | M   | VCR fixtures + trait abstraction; new provider < 1 day          | Dev A |
+| R5  | `chromiumoxide` upstream breakage      | M   | H   | Soft-fork; pin CDP protocol version                             | Dev A |
+| R6  | 2-person bus factor                    | H   | H   | ADRs, docs, no tribal knowledge; contractor for Cloud infra     | Both  |
+| R7  | WebVoyager score below 85% at GA       | M   | H   | Start subset benchmarking Phase 4; iterate weekly from Phase 11 | Both  |
+| R8  | Competitor ships cassette-like feature | M   | M   | Registry network effect + signed cassettes moat                 | Both  |
+| R9  | SOC 2 audit failure                    | L   | H   | Consultant from Phase 15; dry-run Phase 16                      | Dev B |
+| R10 | Token metrics disputed publicly        | M   | M   | Open methodology repo; reproducible scripts                     | Dev A |
+
 
 ---
 
@@ -1218,22 +1322,24 @@ Template: `docs/adr/0000-template.md`
 
 ## 11. Glossary
 
-| Term | Definition |
-|---|---|
-| **ATP Spec** | Declarative YAML/JSON format (`.atp.yml`) for agent web tasks |
+
+| Term                | Definition                                                                     |
+| ------------------- | ------------------------------------------------------------------------------ |
+| **ATP Spec**        | Declarative YAML/JSON format (`.atp.yml`) for agent web tasks                  |
 | **Action Cassette** | Signed, versioned recording of a successful agent run for deterministic replay |
-| **CDP** | Chrome DevTools Protocol — direct browser control channel |
-| **Cassette Router** | Orchestrator component that chooses replay vs LLM plan |
-| **Diff snapshot** | Patch sent to LLM containing only DOM changes since last step |
-| **Drift** | When replay expected hash ≠ actual page state |
-| **JCS** | JSON Canonicalization Scheme — deterministic JSON serialisation for signing |
-| **KEK** | Key-Encryption Key — master key in OS keychain |
-| **DEK** | Data-Encryption Key — per-domain key wrapping vault entries |
-| **MCP** | Model Context Protocol — agent-to-tool standard |
-| **Ref** | Compressed element reference (`@e1`, `@e2`, …) |
-| **Self-heal** | LLM-assisted cassette patch on drift |
-| **Snapshot CAS** | Content-addressed store of page snapshots (BLAKE3) |
-| **WebVoyager** | 586-task benchmark for web agent evaluation |
+| **CDP**             | Chrome DevTools Protocol — direct browser control channel                      |
+| **Cassette Router** | Orchestrator component that chooses replay vs LLM plan                         |
+| **Diff snapshot**   | Patch sent to LLM containing only DOM changes since last step                  |
+| **Drift**           | When replay expected hash ≠ actual page state                                  |
+| **JCS**             | JSON Canonicalization Scheme — deterministic JSON serialisation for signing    |
+| **KEK**             | Key-Encryption Key — master key in OS keychain                                 |
+| **DEK**             | Data-Encryption Key — per-domain key wrapping vault entries                    |
+| **MCP**             | Model Context Protocol — agent-to-tool standard                                |
+| **Ref**             | Compressed element reference (`@e1`, `@e2`, …)                                 |
+| **Self-heal**       | LLM-assisted cassette patch on drift                                           |
+| **Snapshot CAS**    | Content-addressed store of page snapshots (BLAKE3)                             |
+| **WebVoyager**      | 586-task benchmark for web agent evaluation                                    |
+
 
 ---
 
@@ -1241,26 +1347,28 @@ Template: `docs/adr/0000-template.md`
 
 ### 12.1 Testing tool inventory
 
-| Tool | Language | Purpose |
-|---|---|---|
-| `cargo test` / `nextest` | Rust | Unit + integration |
-| `proptest` | Rust | Property-based |
-| `insta` | Rust | Snapshot testing |
-| `cargo-fuzz` | Rust | Fuzzing |
-| `criterion` | Rust | Benchmarks |
-| `cargo-mutants` | Rust | Mutation testing |
-| `cargo-audit` | Rust | Advisory DB |
-| `cargo-deny` | Rust | License/ban policy |
-| `cargo-vet` | Rust | Dependency audit |
-| `cargo-cyclonedx` | Rust | SBOM |
-| `pytest` | Python | SDK tests |
-| `hypothesis` | Python | Property tests |
-| `vitest` | TypeScript | SDK tests |
-| `fast-check` | TypeScript | Property tests |
-| `semgrep` | Multi | SAST |
-| `Playwright` | TS | Debugger UI tests only |
-| `k6` | JS | Cloud load tests |
-| `testcontainers` | Rust | Integration deps |
+
+| Tool                     | Language   | Purpose                |
+| ------------------------ | ---------- | ---------------------- |
+| `cargo test` / `nextest` | Rust       | Unit + integration     |
+| `proptest`               | Rust       | Property-based         |
+| `insta`                  | Rust       | Snapshot testing       |
+| `cargo-fuzz`             | Rust       | Fuzzing                |
+| `criterion`              | Rust       | Benchmarks             |
+| `cargo-mutants`          | Rust       | Mutation testing       |
+| `cargo-audit`            | Rust       | Advisory DB            |
+| `cargo-deny`             | Rust       | License/ban policy     |
+| `cargo-vet`              | Rust       | Dependency audit       |
+| `cargo-cyclonedx`        | Rust       | SBOM                   |
+| `pytest`                 | Python     | SDK tests              |
+| `hypothesis`             | Python     | Property tests         |
+| `vitest`                 | TypeScript | SDK tests              |
+| `fast-check`             | TypeScript | Property tests         |
+| `semgrep`                | Multi      | SAST                   |
+| `Playwright`             | TS         | Debugger UI tests only |
+| `k6`                     | JS         | Cloud load tests       |
+| `testcontainers`         | Rust       | Integration deps       |
+
 
 ### 12.2 CI workflow template (sketch)
 
@@ -1323,12 +1431,14 @@ Positive and negative outcomes.
 
 ### 12.5 Related documents
 
-| Document | Path |
-|---|---|
-| Product requirements | [PRD.md](./PRD.md) |
-| System architecture | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| User journeys | [USER_FLOWS.md](./USER_FLOWS.md) |
-| Initial research | [../assets/draft.txt](../assets/draft.txt) |
+
+| Document             | Path                                       |
+| -------------------- | ------------------------------------------ |
+| Product requirements | [PRD.md](./PRD.md)                         |
+| System architecture  | [ARCHITECTURE.md](./ARCHITECTURE.md)       |
+| User journeys        | [USER_FLOWS.md](./USER_FLOWS.md)           |
+| Initial research     | [../assets/draft.txt](../assets/draft.txt) |
+
 
 ---
 

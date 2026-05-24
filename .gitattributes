@@ -1,0 +1,47 @@
+# Force consistent line endings across platforms.
+# Without this, Windows clones get CRLF, Linux/macOS get LF, and pre-commit
+# hooks (mixed-line-ending, end-of-file-fixer) endlessly normalize files.
+
+# Default: every text file uses LF in the repo. Working tree may be CRLF on
+# Windows depending on core.autocrlf, but the repo itself stays LF.
+* text=auto eol=lf
+
+# Source code — always LF, no exceptions.
+*.rs           text eol=lf
+*.toml         text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.json         text eol=lf
+*.md           text eol=lf
+*.html         text eol=lf
+*.css          text eol=lf
+*.js           text eol=lf
+*.ts           text eol=lf
+*.py           text eol=lf
+*.sh           text eol=lf
+
+# Windows-only files (if any are added later).
+*.ps1          text eol=crlf
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+
+# Binary files — never normalize.
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.ico          binary
+*.svg          text eol=lf
+*.pdf          binary
+*.wasm         binary
+*.node         binary
+*.so           binary
+*.dylib        binary
+*.dll          binary
+*.exe          binary
+
+# Lock files — generated, treat as text but stable LF.
+Cargo.lock     text eol=lf
+package-lock.json text eol=lf
+yarn.lock      text eol=lf
+poetry.lock    text eol=lf
