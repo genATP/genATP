@@ -164,7 +164,7 @@ impl LaunchOptions {
     /// The deliberate set of flags we always pass. Centralising them here
     /// makes the launch surface auditable in one place.
     fn baseline_args(&self) -> Vec<String> {
-        vec![
+        let mut args = vec![
             // Disable the blink feature that exposes navigator.webdriver behaviour.
             "--disable-blink-features=AutomationControlled".to_string(),
             // Avoid info-bars and dev-mode banners that change the viewport.
@@ -183,7 +183,35 @@ impl LaunchOptions {
             "--disable-crashpad".to_string(),
             // Locale + timezone passed via dedicated flags.
             format!("--lang={}", self.locale),
-        ]
+        ];
+        args.extend(self.linux_ci_sandbox_args());
+        args
+    }
+
+    /// GitHub Actions / Docker Linux runners ship Chrome without a correctly
+    /// configured setuid sandbox (`chrome-sandbox` mode 4755). Chrome aborts
+    /// with exit 134 unless we disable the sandbox in CI-only environments.
+    ///
+    /// Not applied on developer Linux machines unless `CI` or
+    /// `GENATP_TEST_HEADLESS` is set (both are set in `.github/workflows/ci.yml`).
+    fn linux_ci_sandbox_args(&self) -> Vec<String> {
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = self;
+            Vec::new()
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let in_ci = std::env::var_os("CI").is_some()
+                || std::env::var_os("GENATP_TEST_HEADLESS").is_some();
+            if !in_ci {
+                return Vec::new();
+            }
+            vec![
+                "--no-sandbox".to_string(),
+                "--disable-setuid-sandbox".to_string(),
+            ]
+        }
     }
 
     /// Compile this builder into a [`BrowserConfig`] ready for `Browser::launch`.
@@ -277,5 +305,21 @@ mod tests {
         LaunchOptions::default()
             .into_config()
             .expect("default config should build");
+    }
+
+    #[test]
+    fn linux_ci_sandbox_args_empty_outside_ci() {
+        // Windows/macOS always return empty; on Linux this holds when CI is unset.
+        let opts = LaunchOptions::default();
+        let args = opts.linux_ci_sandbox_args();
+        #[cfg(not(target_os = "linux"))]
+        assert!(args.is_empty());
+        #[cfg(target_os = "linux")]
+        if std::env::var_os("CI").is_none() && std::env::var_os("GENATP_TEST_HEADLESS").is_none() {
+            assert!(
+                args.is_empty(),
+                "expected no CI sandbox flags locally: {args:?}"
+            );
+        }
     }
 }

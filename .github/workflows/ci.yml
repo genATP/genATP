@@ -72,14 +72,20 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            chrome_setup: setup-chrome
           - os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
+            # browser-actions/setup-chrome@v1 does not support linux arm64 yet.
+            chrome_setup: apt-chromium
           - os: macos-13
             target: x86_64-apple-darwin
+            chrome_setup: setup-chrome
           - os: macos-14
             target: aarch64-apple-darwin
+            chrome_setup: setup-chrome
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            chrome_setup: setup-chrome
     runs-on: ${{ matrix.os }}
     env:
       # Browser integration tests honor CHROME_PATH; setup-chrome exports it.
@@ -97,14 +103,30 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      - name: Setup Chrome (for genatp-browser integration tests)
+      - name: Setup Chrome (setup-chrome action)
+        if: matrix.chrome_setup == 'setup-chrome'
         uses: browser-actions/setup-chrome@v1
         id: setup-chrome
         with:
           chrome-version: stable
 
-      - name: Export CHROME_PATH (unix)
-        if: runner.os != 'Windows'
+      - name: Setup Chromium (apt — Linux ARM64)
+        if: matrix.chrome_setup == 'apt-chromium'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver \
+            || sudo apt-get install -y chromium
+          CHROME="$(command -v chromium-browser || command -v chromium || true)"
+          if [ -z "$CHROME" ]; then
+            echo "No chromium binary found after apt install" >&2
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+          echo "Installed Chromium at $CHROME"
+
+      - name: Export CHROME_PATH (unix, setup-chrome)
+        if: runner.os != 'Windows' && matrix.chrome_setup == 'setup-chrome'
         run: echo "CHROME_PATH=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
 
       - name: Export CHROME_PATH (windows)

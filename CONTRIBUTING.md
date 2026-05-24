@@ -83,17 +83,30 @@ Any change to:
 
 ## Local checks (cheat sheet)
 
+**Run this before every commit** (matches CI + pre-commit):
+
+```powershell
+# Windows
+.\scripts\preflight.ps1
+
+# macOS / Linux / Git Bash
+./scripts/preflight.sh
+```
+
+Add `-Quick` to skip the full test matrix when Chrome is not installed locally.
+
 | Command | Why |
 |---|---|
-| `cargo fmt --all` | Format. Pre-commit auto-runs `--check`. |
+| `.\scripts\preflight.ps1` | **Recommended** — fmt, clippy, test, deny in one shot |
+| `cargo fmt --all` | Format (pre-commit also applies fmt on commit) |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Lint. Same gate CI runs. |
 | `cargo test --workspace` | Unit + integration tests. |
 | `cargo deny check` | License + security advisories + bans. |
-| `cargo audit` | Known CVEs in dependency graph. |
+| `cargo audit` | Known CVEs in dependency graph (CI lint job). |
 | `cargo llvm-cov --workspace --html` | Local coverage report. |
 | `cargo bench --workspace` | Local benchmark run (Phase 1+). |
 
-Run `pre-commit run --all-files` before pushing if you skipped hooks.
+Run `pre-commit run --all-files` if you want to dry-run hooks without committing.
 
 ---
 

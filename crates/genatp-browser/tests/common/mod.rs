@@ -165,8 +165,10 @@ pub fn chrome_available() -> bool {
     #[cfg(target_os = "linux")]
     let candidates: &[&str] = &[
         "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
         "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
+        "/snap/bin/chromium",
     ];
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     let candidates: &[&str] = &[];

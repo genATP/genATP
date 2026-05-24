@@ -44,9 +44,11 @@ repos:
   # is first in PATH (pre-commit would otherwise invoke WSL without cargo).
   - repo: local
     hooks:
+      # Apply rustfmt on commit (not --check) so commits never fail on formatting
+      # drift. Run scripts/preflight.ps1 before pushing for the full CI mirror.
       - id: cargo-fmt
-        name: cargo fmt --all -- --check
-        entry: python scripts/cargo_precommit.py fmt --all -- --check
+        name: cargo fmt --all (apply)
+        entry: python scripts/cargo_precommit.py fmt --all
         language: system
         types: [rust]
         pass_filenames: false
