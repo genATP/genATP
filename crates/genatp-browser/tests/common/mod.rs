@@ -133,6 +133,10 @@ fn load_fixture_files() -> HashMap<String, Vec<u8>> {
 /// Test launch options pinned to a temp `user_data_dir` outside any
 /// OneDrive / synced filesystem. Chrome on Windows sometimes fails with
 /// ExitStatus(21) when the user-data-dir is on a synced drive.
+///
+/// Always starts from [`LaunchOptions::default`] (baseline flags + headless)
+/// and layers `for_integration_tests` so Linux CI gets `--no-sandbox` via both
+/// `baseline_args` and `extra_args`.
 pub fn test_launch_options() -> LaunchOptions {
     let tmp = std::env::temp_dir().join(format!(
         "genatp-browser-test-{}-{}",
@@ -143,7 +147,7 @@ pub fn test_launch_options() -> LaunchOptions {
             .unwrap_or(0)
     ));
     let _ = std::fs::create_dir_all(&tmp);
-    LaunchOptions::default().user_data_dir(tmp)
+    LaunchOptions::for_integration_tests(tmp)
 }
 
 /// True if Chrome is installed (or `CHROME_PATH` points at it).

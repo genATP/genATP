@@ -161,6 +161,38 @@ impl LaunchOptions {
         self
     }
 
+    /// Integration-test profile: [`default`](Self::default) + temp profile +
+    /// guaranteed Linux CI sandbox flags (belt-and-suspenders for GitHub
+    /// Actions where env detection alone has proven brittle).
+    #[must_use]
+    pub fn for_integration_tests(user_data_dir: impl Into<PathBuf>) -> Self {
+        Self::default()
+            .user_data_dir(user_data_dir)
+            .with_linux_sandbox_compat()
+    }
+
+    /// On Linux, append `--no-sandbox` / `--disable-setuid-sandbox` to
+    /// `extra_args` if not already present. `into_config` appends `extra_args`
+    /// after `baseline_args`, so this is a reliable fallback when
+    /// `linux_ci_sandbox_args` did not fire (e.g. env not propagated to the
+    /// test binary).
+    #[must_use]
+    pub fn with_linux_sandbox_compat(mut self) -> Self {
+        #[cfg(target_os = "linux")]
+        {
+            for flag in ["--no-sandbox", "--disable-setuid-sandbox"] {
+                if !self.extra_args.iter().any(|a| a == flag) {
+                    self.extra_args.push(flag.to_string());
+                }
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = &mut self;
+        }
+        self
+    }
+
     /// The deliberate set of flags we always pass. Centralising them here
     /// makes the launch surface auditable in one place.
     fn baseline_args(&self) -> Vec<String> {
@@ -190,27 +222,33 @@ impl LaunchOptions {
 
     /// GitHub Actions / Docker Linux runners ship Chrome without a correctly
     /// configured setuid sandbox (`chrome-sandbox` mode 4755). Chrome aborts
-    /// with exit 134 unless we disable the sandbox in CI-only environments.
+    /// with exit 134 unless we disable the sandbox.
     ///
-    /// Not applied on developer Linux machines unless `CI` or
-    /// `GENATP_TEST_HEADLESS` is set (both are set in `.github/workflows/ci.yml`).
+    /// Applied on Linux when any of:
+    /// - `CI`, `GITHUB_ACTIONS`, or `GENATP_TEST_HEADLESS` is set (CI), or
+    /// - headless mode is active (the default for tests and production).
     fn linux_ci_sandbox_args(&self) -> Vec<String> {
         #[cfg(not(target_os = "linux"))]
         {
             let _ = self;
             Vec::new()
         }
+
         #[cfg(target_os = "linux")]
         {
-            let in_ci = std::env::var_os("CI").is_some()
-                || std::env::var_os("GENATP_TEST_HEADLESS").is_some();
-            if !in_ci {
-                return Vec::new();
+            let disable_sandbox = std::env::var_os("CI").is_some()
+                || std::env::var_os("GITHUB_ACTIONS").is_some()
+                || std::env::var_os("GENATP_TEST_HEADLESS").is_some()
+                || !matches!(self.headless, HeadlessMode::Visible);
+
+            if disable_sandbox {
+                vec![
+                    "--no-sandbox".to_string(),
+                    "--disable-setuid-sandbox".to_string(),
+                ]
+            } else {
+                Vec::new()
             }
-            vec![
-                "--no-sandbox".to_string(),
-                "--disable-setuid-sandbox".to_string(),
-            ]
         }
     }
 
@@ -308,18 +346,37 @@ mod tests {
     }
 
     #[test]
-    fn linux_ci_sandbox_args_empty_outside_ci() {
-        // Windows/macOS always return empty; on Linux this holds when CI is unset.
+    fn headless_default_includes_linux_sandbox_flags_when_built_for_linux() {
+        // Default headless is `New`; on Linux targets this must include sandbox
+        // disable flags so CI does not depend solely on runtime env vars.
         let opts = LaunchOptions::default();
         let args = opts.linux_ci_sandbox_args();
         #[cfg(not(target_os = "linux"))]
         assert!(args.is_empty());
         #[cfg(target_os = "linux")]
-        if std::env::var_os("CI").is_none() && std::env::var_os("GENATP_TEST_HEADLESS").is_none() {
+        {
             assert!(
-                args.is_empty(),
-                "expected no CI sandbox flags locally: {args:?}"
+                args.iter().any(|a| a == "--no-sandbox"),
+                "headless Linux launch must disable sandbox: {args:?}"
+            );
+            assert!(
+                args.iter().any(|a| a == "--disable-setuid-sandbox"),
+                "headless Linux launch must disable setuid sandbox: {args:?}"
             );
         }
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn with_linux_sandbox_compat_dedupes_extra_args() {
+        let opts = LaunchOptions::default()
+            .arg("--no-sandbox")
+            .with_linux_sandbox_compat();
+        let count = opts
+            .extra_args
+            .iter()
+            .filter(|a| *a == "--no-sandbox")
+            .count();
+        assert_eq!(count, 1, "must not duplicate --no-sandbox");
     }
 }
