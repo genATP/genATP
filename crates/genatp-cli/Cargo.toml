@@ -1,0 +1,24 @@
+[package]
+name = "genatp-cli"
+description = "genATP command-line interface: serve / record / run / test / replay / install."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "genatp"
+path = "src/main.rs"
+
+[lib]
+name = "genatp_cli"
+path = "src/lib.rs"
+
+[dependencies]

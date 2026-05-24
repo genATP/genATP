@@ -1,0 +1,22 @@
+{
+  "name": "genatp",
+  "version": "0.0.1",
+  "description": "TypeScript/Node SDK for genATP — the unified web-access layer for AI agents.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/genatp/genatp.git",
+    "directory": "bindings/node"
+  },
+  "homepage": "https://genatp.dev",
+  "comments": [
+    "Phase 0 placeholder. Phase 10 fills in NAPI-RS build scripts, prebuild matrix,",
+    "and triple-specific .node binaries. Do not publish before Phase 10."
+  ],
+  "private": true
+}

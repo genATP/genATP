@@ -1,0 +1,16 @@
+[package]
+name = "genatp-perception"
+description = "Token-optimized snapshots: a11y tree compression, diff engine, vision adapter. Phase 2 implementation."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

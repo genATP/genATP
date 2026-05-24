@@ -1,0 +1,38 @@
+coverage:
+  precision: 1
+  round: nearest
+  range: "70...95"
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 1%
+        if_ci_failed: error
+        only_pulls: false
+      core:
+        target: 85%
+        threshold: 1%
+        paths:
+          - "crates/genatp-core/"
+          - "crates/genatp-cassette/"
+          - "crates/genatp-vault/"
+          - "crates/genatp-atp-spec/"
+    patch:
+      default:
+        target: 80%
+        threshold: 1%
+        if_ci_failed: error
+
+ignore:
+  - "fixtures/**"
+  - "benches/**"
+  - "fuzz/**"
+  - "examples/**"
+  - "**/tests/**"
+  - "bindings/python/src/lib.rs"
+  - "bindings/node/src/lib.rs"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: true

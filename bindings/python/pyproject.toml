@@ -1,0 +1,31 @@
+# Phase 5 deliverable. This pyproject.toml is a Phase 0 placeholder so
+# `bindings/python/` is a valid Python package shape from the start.
+# Maturin wiring + PyO3 deps land in Phase 5.
+[project]
+name = "genatp"
+version = "0.0.1"
+description = "Python SDK for genATP — the unified web-access layer for AI agents."
+readme = "../../README.md"
+requires-python = ">=3.10"
+license = { file = "../../LICENSE" }
+authors = [{ name = "genATP contributors" }]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Developers",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Rust",
+]
+
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# Filled in during Phase 5 once the PyO3 module exists.
+features = []

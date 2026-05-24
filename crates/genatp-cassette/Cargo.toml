@@ -1,0 +1,16 @@
+[package]
+name = "genatp-cassette"
+description = "Action Cassettes: signed deterministic replay format, recorder, replay engine, self-heal. Phases 7–8."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

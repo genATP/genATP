@@ -1,0 +1,7 @@
+[toolchain]
+# MSRV (minimum supported Rust version) for genATP.
+# Bump deliberately (not on every Rust release). Coordinate with `rust-version`
+# in the workspace Cargo.toml.
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

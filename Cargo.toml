@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/genatp-core",
+  "crates/genatp-browser",
+  "crates/genatp-perception",
+  "crates/genatp-vault",
+  "crates/genatp-cassette",
+  "crates/genatp-atp-spec",
+  "crates/genatp-mcp",
+  "crates/genatp-llm",
+  "crates/genatp-cli",
+  "crates/genatp-registry",
+  "crates/genatp-debugger",
+  "bindings/python",
+  "bindings/node",
+]
+
+# Default members exclude bindings; CI runs them in dedicated jobs that
+# install Python / Node toolchains. `cargo test --workspace` builds everything.
+default-members = [
+  "crates/genatp-core",
+  "crates/genatp-browser",
+  "crates/genatp-perception",
+  "crates/genatp-vault",
+  "crates/genatp-cassette",
+  "crates/genatp-atp-spec",
+  "crates/genatp-mcp",
+  "crates/genatp-llm",
+  "crates/genatp-cli",
+  "crates/genatp-registry",
+  "crates/genatp-debugger",
+]
+
+[workspace.package]
+version = "0.0.1"
+authors = ["genATP contributors"]
+edition = "2024"
+rust-version = "1.95"
+license = "LicenseRef-genATP-Personal-Use-1.0"
+repository = "https://github.com/genatp/genatp"
+homepage = "https://genatp.dev"
+publish = false
+readme = "../../README.md"
+
+[workspace.lints.clippy]
+# Phase 0 keeps the lint floor at clippy::all. Crates ratchet to pedantic
+# individually as they mature (per phase exit criteria).
+all = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+# Shared dependency versions. Crates opt in via `dep.workspace = true`.
+# Pinned conservatively; bump deliberately, not opportunistically.
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+debug = false
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Speed up cargo-dist / release builds without sacrificing optimization.
+[profile.dist]
+inherits = "release"
+lto = "fat"

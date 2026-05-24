@@ -1,0 +1,16 @@
+[package]
+name = "genatp-vault"
+description = "Encrypted per-domain auth store (AES-256-GCM, ed25519, OS keychain integration). Phase 6 implementation."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

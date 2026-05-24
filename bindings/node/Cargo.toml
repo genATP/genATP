@@ -1,0 +1,22 @@
+[package]
+name = "genatp-node"
+description = "TypeScript/Node SDK bindings (NAPI-RS). Phase 10 implementation. Phase 0 stub."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lib]
+# Phase 0: plain rlib so workspace builds without NAPI tooling in CI.
+# Phase 10 swaps to `crate-type = ["cdylib"]` and adds napi-derive.
+name = "genatp_node"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]

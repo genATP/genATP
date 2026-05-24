@@ -1,0 +1,67 @@
+# Pre-commit hooks for genATP.
+# Install:    pip install pre-commit && pre-commit install
+# Acceptance: install completes in < 2 min on a fresh clone (Phase 0 criterion).
+#
+# Local Rust hooks shell out to the workspace toolchain (pinned by
+# rust-toolchain.toml) so contributors don't need a second Rust install.
+
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  # ----- generic hygiene -----
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-json
+        exclude: '\.vscode/'
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: detect-private-key
+
+  # ----- secret scanning (no creds in cassettes / fixtures) -----
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # ----- TOML formatting (taplo) -----
+  - repo: https://github.com/ComPWA/taplo-pre-commit
+    rev: v0.9.3
+    hooks:
+      - id: taplo-format
+
+  # ----- Rust toolchain hooks (use workspace toolchain) -----
+  # scripts/cargo_precommit.py resolves cargo on Windows even when WSL's bash
+  # is first in PATH (pre-commit would otherwise invoke WSL without cargo).
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --all -- --check
+        entry: python scripts/cargo_precommit.py fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy --workspace -- -D warnings
+        entry: python scripts/cargo_precommit.py clippy --workspace --all-targets -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: cargo-deny
+        name: cargo deny check
+        entry: python scripts/cargo_precommit.py deny check
+        language: system
+        files: '^(Cargo\.toml|Cargo\.lock|deny\.toml)$'
+        pass_filenames: false

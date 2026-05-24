@@ -1,0 +1,75 @@
+name: Bench Regression
+
+# Runs Criterion benchmarks on every PR that touches benches/ or core hot paths,
+# and on push to main. Compares against main baseline; fails on >5% regression
+# of any tracked metric (perception throughput, CDP roundtrip, cassette replay).
+# Phase 0 ships the workflow shell only — actual benches land in their owner phases.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "benches/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  pull_request:
+    branches: [main]
+    paths:
+      - "benches/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: criterion benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: bench
+
+      - name: Detect benchmarks
+        id: detect
+        shell: bash
+        run: |
+          if [ -d benches ] && [ "$(ls -A benches 2>/dev/null)" ]; then
+            echo "has_benches=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_benches=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run benchmarks
+        if: steps.detect.outputs.has_benches == 'true'
+        run: cargo bench --workspace -- --output-format bencher | tee bench-output.txt
+
+      - name: Compare against main baseline
+        if: steps.detect.outputs.has_benches == 'true' && github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: cargo
+          output-file-path: bench-output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: "105%"
+          fail-on-alert: true
+          comment-on-alert: true
+          summary-always: true
+
+      - name: No-op (Phase 0 — benches not yet authored)
+        if: steps.detect.outputs.has_benches != 'true'
+        run: echo "No benches found yet. Phase 1+ will populate benches/."

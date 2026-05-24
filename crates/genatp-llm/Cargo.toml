@@ -1,0 +1,16 @@
+[package]
+name = "genatp-llm"
+description = "LLM provider trait + adapters (Anthropic, OpenAI, Google, Mistral, Ollama, vLLM). Phase 3 implementation."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

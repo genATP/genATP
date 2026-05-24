@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>genATP Fixture — Hello</title>
+    <meta name="description" content="Phase 0 fixture page. Confirms the fixture server can be reached from tests.">
+</head>
+<body>
+    <header>
+        <h1 id="hello-heading">Hello, genATP</h1>
+        <p>This is a deterministic fixture page used by integration tests.</p>
+    </header>
+
+    <main>
+        <section aria-label="basic-controls">
+            <button id="primary-button" type="button" data-testid="primary-button">
+                Click me
+            </button>
+
+            <form id="hello-form" aria-label="hello-form">
+                <label for="name-input">Name</label>
+                <input id="name-input" name="name" type="text" placeholder="your name" data-testid="name-input">
+
+                <label for="email-input">Email</label>
+                <input id="email-input" name="email" type="email" placeholder="you@example.com" data-testid="email-input">
+
+                <button type="submit" data-testid="submit">Submit</button>
+            </form>
+        </section>
+
+        <section aria-label="text-content">
+            <p data-testid="paragraph">
+                The quick brown fox jumps over the lazy dog.
+            </p>
+            <ul>
+                <li data-testid="item-1">Item one</li>
+                <li data-testid="item-2">Item two</li>
+                <li data-testid="item-3">Item three</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <small>genATP fixture v0.0.1 — Phase 0</small>
+    </footer>
+</body>
+</html>

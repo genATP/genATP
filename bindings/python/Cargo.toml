@@ -1,0 +1,22 @@
+[package]
+name = "genatp-python"
+description = "Python SDK bindings (PyO3 + maturin). Phase 5 implementation. Phase 0 stub."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[lib]
+# Phase 0: plain rlib so it builds without Python headers in CI.
+# Phase 5 replaces this with `crate-type = ["cdylib"]` and adds the pyo3 dep.
+name = "genatp_python"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
