@@ -1,0 +1,15 @@
+{
+  "url": "https://fixture.test/03-search?q=widget",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2","3"], "role": "RootWebArea", "name": "Search results" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["4","5"], "role": "search" },
+    { "node_id": "3", "parent_id": "1", "child_ids": ["6","7","8","9"], "role": "main" },
+    { "node_id": "4", "parent_id": "2", "role": "searchbox", "name": "Search products", "value": "widget" },
+    { "node_id": "5", "parent_id": "2", "role": "button", "name": "Search" },
+    { "node_id": "6", "parent_id": "3", "role": "heading", "name": "12 results for \"widget\"" },
+    { "node_id": "7", "parent_id": "3", "role": "link", "name": "Widget Pro — $49" },
+    { "node_id": "8", "parent_id": "3", "role": "link", "name": "Widget Mini — $19" },
+    { "node_id": "9", "parent_id": "3", "role": "link", "name": "Industrial Widget — $299" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "url": "https://fixture.test/08-tabs",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Account" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","7"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "child_ids": ["4","5","6"], "role": "tablist", "name": "Account sections" },
+    { "node_id": "4", "parent_id": "3", "role": "tab", "name": "Profile", "properties": [{"name":"selected","value":"true"}] },
+    { "node_id": "5", "parent_id": "3", "role": "tab", "name": "Billing" },
+    { "node_id": "6", "parent_id": "3", "role": "tab", "name": "API keys" },
+    { "node_id": "7", "parent_id": "2", "child_ids": ["8","9","10"], "role": "tabpanel", "name": "Profile" },
+    { "node_id": "8", "parent_id": "7", "role": "textbox", "name": "Display name", "value": "Prasanna" },
+    { "node_id": "9", "parent_id": "7", "role": "textbox", "name": "Email", "value": "p@example.com" },
+    { "node_id": "10", "parent_id": "7", "role": "button", "name": "Save changes" }
+  ]
+}

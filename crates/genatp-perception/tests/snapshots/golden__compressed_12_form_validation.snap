@@ -1,0 +1,87 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/12-form-validation",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Create account"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Create your account",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "form",
+      "name": "Sign up",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "textbox",
+      "name": "Full name",
+      "value": "Pat",
+      "parent": "@e4",
+      "flags": [
+        "required",
+        "invalid"
+      ]
+    },
+    {
+      "ref": "@e6",
+      "role": "textbox",
+      "name": "Email",
+      "value": "not-an-email",
+      "parent": "@e4",
+      "position": 1,
+      "flags": [
+        "required",
+        "invalid"
+      ]
+    },
+    {
+      "ref": "@e7",
+      "role": "textbox",
+      "name": "Password",
+      "parent": "@e4",
+      "position": 2,
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e8",
+      "role": "checkbox",
+      "name": "I agree to the Terms of Service",
+      "parent": "@e4",
+      "position": 3,
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e9",
+      "role": "button",
+      "name": "Create account",
+      "parent": "@e4",
+      "position": 4,
+      "flags": [
+        "disabled"
+      ]
+    }
+  ]
+}

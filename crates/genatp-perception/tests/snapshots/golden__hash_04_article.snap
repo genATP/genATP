@@ -1,0 +1,5 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: hash.to_hex()
+---
+8e30dc62b0777e1617f080652483f34e8156606a2da595df6aae09bc60c2e49b

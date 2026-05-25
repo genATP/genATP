@@ -1,0 +1,18 @@
+{
+  "url": "https://fixture.test/09-pricing",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Pricing" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4","5","6"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Plans for every team" },
+    { "node_id": "4", "parent_id": "2", "child_ids": ["10","11"], "role": "region", "name": "Starter" },
+    { "node_id": "5", "parent_id": "2", "child_ids": ["20","21"], "role": "region", "name": "Pro" },
+    { "node_id": "6", "parent_id": "2", "child_ids": ["30","31"], "role": "region", "name": "Enterprise" },
+    { "node_id": "10", "parent_id": "4", "role": "heading", "name": "Starter — free" },
+    { "node_id": "11", "parent_id": "4", "role": "link", "name": "Get started" },
+    { "node_id": "20", "parent_id": "5", "role": "heading", "name": "Pro — $49 / mo" },
+    { "node_id": "21", "parent_id": "5", "role": "link", "name": "Start free trial" },
+    { "node_id": "30", "parent_id": "6", "role": "heading", "name": "Enterprise — contact us" },
+    { "node_id": "31", "parent_id": "6", "role": "link", "name": "Talk to sales" }
+  ]
+}

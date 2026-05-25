@@ -1,0 +1,11 @@
+{
+  "url": "https://fixture.test/01-hello",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Hello — fixture" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4","5"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Hello, world." },
+    { "node_id": "4", "parent_id": "2", "role": "paragraph", "name": "A minimal fixture page." },
+    { "node_id": "5", "parent_id": "2", "role": "button", "name": "Greet" }
+  ]
+}

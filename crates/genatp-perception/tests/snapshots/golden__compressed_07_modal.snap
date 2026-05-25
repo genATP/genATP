@@ -1,0 +1,68 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/07-modal",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Page with modal"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Settings",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "button",
+      "name": "Delete account",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "dialog",
+      "name": "Confirm deletion",
+      "parent": "@e1",
+      "position": 1
+    },
+    {
+      "ref": "@e6",
+      "role": "heading",
+      "name": "Are you sure?",
+      "parent": "@e5"
+    },
+    {
+      "ref": "@e7",
+      "role": "paragraph",
+      "name": "This action cannot be undone.",
+      "parent": "@e5",
+      "position": 1
+    },
+    {
+      "ref": "@e8",
+      "role": "button",
+      "name": "Cancel",
+      "parent": "@e5",
+      "position": 2
+    },
+    {
+      "ref": "@e9",
+      "role": "button",
+      "name": "Delete account",
+      "parent": "@e5",
+      "position": 3
+    }
+  ]
+}

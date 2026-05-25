@@ -1,0 +1,67 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/11-decorative",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Newsletter signup"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Get product updates",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "paragraph",
+      "name": "One short email per release. No spam.",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "form",
+      "name": "Subscribe",
+      "parent": "@e2",
+      "position": 2
+    },
+    {
+      "ref": "@e6",
+      "role": "textbox",
+      "name": "Email address",
+      "parent": "@e5",
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e7",
+      "role": "checkbox",
+      "name": "I agree to the privacy policy",
+      "parent": "@e5",
+      "position": 1,
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e8",
+      "role": "button",
+      "name": "Subscribe",
+      "parent": "@e5",
+      "position": 2
+    }
+  ]
+}

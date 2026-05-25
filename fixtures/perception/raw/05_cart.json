@@ -1,0 +1,21 @@
+{
+  "url": "https://fixture.test/05-cart",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Cart" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4","12"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Your cart (2 items)" },
+    { "node_id": "4", "parent_id": "2", "child_ids": ["5","9"], "role": "table", "name": "Cart contents" },
+    { "node_id": "5", "parent_id": "4", "child_ids": ["6","7","8"], "role": "row" },
+    { "node_id": "6", "parent_id": "5", "role": "cell", "name": "Widget Pro" },
+    { "node_id": "7", "parent_id": "5", "child_ids": ["7a"], "role": "cell" },
+    { "node_id": "7a", "parent_id": "7", "role": "spinbutton", "name": "Quantity for Widget Pro", "value": "2" },
+    { "node_id": "8", "parent_id": "5", "role": "cell", "name": "$98.00" },
+    { "node_id": "9", "parent_id": "4", "child_ids": ["10","11","11a"], "role": "row" },
+    { "node_id": "10", "parent_id": "9", "role": "cell", "name": "Widget Mini" },
+    { "node_id": "11", "parent_id": "9", "child_ids": ["11b"], "role": "cell" },
+    { "node_id": "11b", "parent_id": "11", "role": "spinbutton", "name": "Quantity for Widget Mini", "value": "1" },
+    { "node_id": "11a", "parent_id": "9", "role": "cell", "name": "$19.00" },
+    { "node_id": "12", "parent_id": "2", "role": "button", "name": "Checkout" }
+  ]
+}

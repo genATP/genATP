@@ -1,0 +1,15 @@
+{
+  "url": "https://fixture.test/02-login",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Sign in" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Sign in to your account" },
+    { "node_id": "4", "parent_id": "2", "child_ids": ["5","6","7","8","9"], "role": "form", "name": "Sign in" },
+    { "node_id": "5", "parent_id": "4", "role": "textbox", "name": "Email", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "6", "parent_id": "4", "role": "textbox", "name": "Password", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "7", "parent_id": "4", "role": "checkbox", "name": "Keep me signed in" },
+    { "node_id": "8", "parent_id": "4", "role": "button", "name": "Sign in" },
+    { "node_id": "9", "parent_id": "4", "role": "link", "name": "Forgot password?" }
+  ]
+}

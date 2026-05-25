@@ -1,0 +1,22 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/10-empty",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Coming soon"
+    },
+    {
+      "ref": "@e2",
+      "role": "heading",
+      "name": "Coming soon",
+      "parent": "@e1"
+    }
+  ]
+}

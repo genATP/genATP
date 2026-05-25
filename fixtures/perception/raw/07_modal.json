@@ -1,0 +1,15 @@
+{
+  "url": "https://fixture.test/07-modal",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2","10"], "role": "RootWebArea", "name": "Page with modal" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Settings" },
+    { "node_id": "4", "parent_id": "2", "role": "button", "name": "Delete account" },
+    { "node_id": "10", "parent_id": "1", "child_ids": ["11","12","13","14"], "role": "dialog", "name": "Confirm deletion", "properties": [{"name":"modal","value":"true"}] },
+    { "node_id": "11", "parent_id": "10", "role": "heading", "name": "Are you sure?" },
+    { "node_id": "12", "parent_id": "10", "role": "paragraph", "name": "This action cannot be undone." },
+    { "node_id": "13", "parent_id": "10", "role": "button", "name": "Cancel" },
+    { "node_id": "14", "parent_id": "10", "role": "button", "name": "Delete account" }
+  ]
+}

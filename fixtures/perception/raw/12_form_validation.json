@@ -1,0 +1,15 @@
+{
+  "url": "https://fixture.test/12-form-validation",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Create account" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3","4"], "role": "main" },
+    { "node_id": "3", "parent_id": "2", "role": "heading", "name": "Create your account" },
+    { "node_id": "4", "parent_id": "2", "child_ids": ["5","6","7","8","9"], "role": "form", "name": "Sign up" },
+    { "node_id": "5", "parent_id": "4", "role": "textbox", "name": "Full name", "value": "Pat", "properties": [{"name":"required","value":"true"},{"name":"invalid","value":"true"}], "description": "Please enter at least 2 characters." },
+    { "node_id": "6", "parent_id": "4", "role": "textbox", "name": "Email", "value": "not-an-email", "properties": [{"name":"required","value":"true"},{"name":"invalid","value":"true"}], "description": "Enter a valid email address." },
+    { "node_id": "7", "parent_id": "4", "role": "textbox", "name": "Password", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "8", "parent_id": "4", "role": "checkbox", "name": "I agree to the Terms of Service", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "9", "parent_id": "4", "role": "button", "name": "Create account", "properties": [{"name":"disabled","value":"true"}] }
+  ]
+}

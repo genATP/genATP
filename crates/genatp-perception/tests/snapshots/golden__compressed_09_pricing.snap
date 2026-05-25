@@ -1,0 +1,87 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/09-pricing",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Pricing"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Plans for every team",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "region",
+      "name": "Starter",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "heading",
+      "name": "Starter — free",
+      "parent": "@e4"
+    },
+    {
+      "ref": "@e6",
+      "role": "link",
+      "name": "Get started",
+      "parent": "@e4",
+      "position": 1
+    },
+    {
+      "ref": "@e7",
+      "role": "region",
+      "name": "Pro",
+      "parent": "@e2",
+      "position": 2
+    },
+    {
+      "ref": "@e8",
+      "role": "heading",
+      "name": "Pro — $49 / mo",
+      "parent": "@e7"
+    },
+    {
+      "ref": "@e9",
+      "role": "link",
+      "name": "Start free trial",
+      "parent": "@e7",
+      "position": 1
+    },
+    {
+      "ref": "@e10",
+      "role": "region",
+      "name": "Enterprise",
+      "parent": "@e2",
+      "position": 3
+    },
+    {
+      "ref": "@e11",
+      "role": "heading",
+      "name": "Enterprise — contact us",
+      "parent": "@e10"
+    },
+    {
+      "ref": "@e12",
+      "role": "link",
+      "name": "Talk to sales",
+      "parent": "@e10",
+      "position": 1
+    }
+  ]
+}

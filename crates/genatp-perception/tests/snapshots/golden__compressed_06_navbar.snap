@@ -1,0 +1,83 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/06-nav",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Marketing site"
+    },
+    {
+      "ref": "@e2",
+      "role": "navigation",
+      "name": "Primary",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "link",
+      "name": "Home",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "link",
+      "name": "Product",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "menubar",
+      "name": "Solutions",
+      "parent": "@e2",
+      "position": 2
+    },
+    {
+      "ref": "@e6",
+      "role": "menuitem",
+      "name": "For startups",
+      "parent": "@e5"
+    },
+    {
+      "ref": "@e7",
+      "role": "menuitem",
+      "name": "For enterprise",
+      "parent": "@e5",
+      "position": 1
+    },
+    {
+      "ref": "@e8",
+      "role": "menuitem",
+      "name": "For agencies",
+      "parent": "@e5",
+      "position": 2
+    },
+    {
+      "ref": "@e9",
+      "role": "link",
+      "name": "Pricing",
+      "parent": "@e2",
+      "position": 3
+    },
+    {
+      "ref": "@e10",
+      "role": "link",
+      "name": "Sign in",
+      "parent": "@e2",
+      "position": 4
+    },
+    {
+      "ref": "@e11",
+      "role": "main",
+      "name": "Welcome",
+      "parent": "@e1",
+      "position": 1
+    }
+  ]
+}

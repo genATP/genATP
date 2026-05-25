@@ -1,0 +1,18 @@
+{
+  "url": "https://fixture.test/11-decorative",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2"], "role": "RootWebArea", "name": "Newsletter signup" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["3"], "role": "generic" },
+    { "node_id": "3", "parent_id": "2", "child_ids": ["4"], "role": "generic" },
+    { "node_id": "4", "parent_id": "3", "child_ids": ["5","9"], "role": "main" },
+    { "node_id": "5", "parent_id": "4", "child_ids": ["6"], "role": "presentation" },
+    { "node_id": "6", "parent_id": "5", "child_ids": ["7","8"], "role": "generic" },
+    { "node_id": "7", "parent_id": "6", "role": "heading", "name": "Get product updates" },
+    { "node_id": "8", "parent_id": "6", "role": "paragraph", "name": "One short email per release. No spam." },
+    { "node_id": "9", "parent_id": "4", "child_ids": ["10","11","12"], "role": "form", "name": "Subscribe" },
+    { "node_id": "10", "parent_id": "9", "role": "textbox", "name": "Email address", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "11", "parent_id": "9", "role": "checkbox", "name": "I agree to the privacy policy", "properties": [{"name":"required","value":"true"}] },
+    { "node_id": "12", "parent_id": "9", "role": "button", "name": "Subscribe" }
+  ]
+}

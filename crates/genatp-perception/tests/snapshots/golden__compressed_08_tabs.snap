@@ -1,0 +1,79 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/08-tabs",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Account"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "tablist",
+      "name": "Account sections",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "tab",
+      "name": "Profile",
+      "parent": "@e3",
+      "flags": [
+        "selected"
+      ]
+    },
+    {
+      "ref": "@e5",
+      "role": "tab",
+      "name": "Billing",
+      "parent": "@e3",
+      "position": 1
+    },
+    {
+      "ref": "@e6",
+      "role": "tab",
+      "name": "API keys",
+      "parent": "@e3",
+      "position": 2
+    },
+    {
+      "ref": "@e7",
+      "role": "tabpanel",
+      "name": "Profile",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e8",
+      "role": "textbox",
+      "name": "Display name",
+      "value": "Prasanna",
+      "parent": "@e7"
+    },
+    {
+      "ref": "@e9",
+      "role": "textbox",
+      "name": "Email",
+      "value": "p@example.com",
+      "parent": "@e7",
+      "position": 1
+    },
+    {
+      "ref": "@e10",
+      "role": "button",
+      "name": "Save changes",
+      "parent": "@e7",
+      "position": 2
+    }
+  ]
+}

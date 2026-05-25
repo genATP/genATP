@@ -1,0 +1,16 @@
+{
+  "url": "https://fixture.test/04-article",
+  "captured_at_ms": 0,
+  "nodes": [
+    { "node_id": "1", "child_ids": ["2","3"], "role": "RootWebArea", "name": "How to ship reliably" },
+    { "node_id": "2", "parent_id": "1", "child_ids": ["10"], "role": "navigation", "name": "Site" },
+    { "node_id": "3", "parent_id": "1", "child_ids": ["4","5","6","7","8","9"], "role": "article" },
+    { "node_id": "10", "parent_id": "2", "role": "link", "name": "Home" },
+    { "node_id": "4", "parent_id": "3", "role": "heading", "name": "How to ship reliably" },
+    { "node_id": "5", "parent_id": "3", "role": "paragraph", "name": "Reliability is a process, not an event." },
+    { "node_id": "6", "parent_id": "3", "role": "heading", "name": "1. Test the boring things" },
+    { "node_id": "7", "parent_id": "3", "role": "paragraph", "name": "Most outages start in code that nobody read for a year." },
+    { "node_id": "8", "parent_id": "3", "role": "heading", "name": "2. Roll back faster than you roll forward" },
+    { "node_id": "9", "parent_id": "3", "role": "paragraph", "name": "Recovery time is the only metric customers feel." }
+  ]
+}

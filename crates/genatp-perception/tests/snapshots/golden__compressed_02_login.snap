@@ -1,0 +1,74 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/02-login",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Sign in"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Sign in to your account",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "form",
+      "name": "Sign in",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "textbox",
+      "name": "Email",
+      "parent": "@e4",
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e6",
+      "role": "textbox",
+      "name": "Password",
+      "parent": "@e4",
+      "position": 1,
+      "flags": [
+        "required"
+      ]
+    },
+    {
+      "ref": "@e7",
+      "role": "checkbox",
+      "name": "Keep me signed in",
+      "parent": "@e4",
+      "position": 2
+    },
+    {
+      "ref": "@e8",
+      "role": "button",
+      "name": "Sign in",
+      "parent": "@e4",
+      "position": 3
+    },
+    {
+      "ref": "@e9",
+      "role": "link",
+      "name": "Forgot password?",
+      "parent": "@e4",
+      "position": 4
+    }
+  ]
+}

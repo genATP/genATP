@@ -1,0 +1,75 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/04-article",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "How to ship reliably"
+    },
+    {
+      "ref": "@e2",
+      "role": "navigation",
+      "name": "Site",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "link",
+      "name": "Home",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "article",
+      "parent": "@e1",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "heading",
+      "name": "How to ship reliably",
+      "parent": "@e4"
+    },
+    {
+      "ref": "@e6",
+      "role": "paragraph",
+      "name": "Reliability is a process, not an event.",
+      "parent": "@e4",
+      "position": 1
+    },
+    {
+      "ref": "@e7",
+      "role": "heading",
+      "name": "1. Test the boring things",
+      "parent": "@e4",
+      "position": 2
+    },
+    {
+      "ref": "@e8",
+      "role": "paragraph",
+      "name": "Most outages start in code that nobody read for a year.",
+      "parent": "@e4",
+      "position": 3
+    },
+    {
+      "ref": "@e9",
+      "role": "heading",
+      "name": "2. Roll back faster than you roll forward",
+      "parent": "@e4",
+      "position": 4
+    },
+    {
+      "ref": "@e10",
+      "role": "paragraph",
+      "name": "Recovery time is the only metric customers feel.",
+      "parent": "@e4",
+      "position": 5
+    }
+  ]
+}

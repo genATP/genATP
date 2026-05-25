@@ -1,0 +1,41 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/01-hello",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Hello — fixture"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Hello, world.",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "paragraph",
+      "name": "A minimal fixture page.",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "button",
+      "name": "Greet",
+      "parent": "@e2",
+      "position": 2
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/05-cart",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Cart"
+    },
+    {
+      "ref": "@e2",
+      "role": "main",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "heading",
+      "name": "Your cart (2 items)",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "table",
+      "name": "Cart contents",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "row",
+      "parent": "@e4"
+    },
+    {
+      "ref": "@e6",
+      "role": "cell",
+      "name": "Widget Pro",
+      "parent": "@e5"
+    },
+    {
+      "ref": "@e7",
+      "role": "cell",
+      "parent": "@e5",
+      "position": 1
+    },
+    {
+      "ref": "@e8",
+      "role": "spinbutton",
+      "name": "Quantity for Widget Pro",
+      "value": "2",
+      "parent": "@e7"
+    },
+    {
+      "ref": "@e9",
+      "role": "cell",
+      "name": "$98.00",
+      "parent": "@e5",
+      "position": 2
+    },
+    {
+      "ref": "@e10",
+      "role": "row",
+      "parent": "@e4",
+      "position": 1
+    },
+    {
+      "ref": "@e11",
+      "role": "cell",
+      "name": "Widget Mini",
+      "parent": "@e10"
+    },
+    {
+      "ref": "@e12",
+      "role": "cell",
+      "parent": "@e10",
+      "position": 1
+    },
+    {
+      "ref": "@e13",
+      "role": "spinbutton",
+      "name": "Quantity for Widget Mini",
+      "value": "1",
+      "parent": "@e12"
+    },
+    {
+      "ref": "@e14",
+      "role": "cell",
+      "name": "$19.00",
+      "parent": "@e10",
+      "position": 2
+    },
+    {
+      "ref": "@e15",
+      "role": "button",
+      "name": "Checkout",
+      "parent": "@e2",
+      "position": 2
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+---
+source: crates/genatp-perception/tests/golden.rs
+expression: json
+---
+{
+  "url": "https://fixture.test/03-search?q=widget",
+  "captured_at_ms": 0,
+  "root": "@e1",
+  "nodes": [
+    {
+      "ref": "@e1",
+      "role": "RootWebArea",
+      "name": "Search results"
+    },
+    {
+      "ref": "@e2",
+      "role": "search",
+      "parent": "@e1"
+    },
+    {
+      "ref": "@e3",
+      "role": "searchbox",
+      "name": "Search products",
+      "value": "widget",
+      "parent": "@e2"
+    },
+    {
+      "ref": "@e4",
+      "role": "button",
+      "name": "Search",
+      "parent": "@e2",
+      "position": 1
+    },
+    {
+      "ref": "@e5",
+      "role": "main",
+      "parent": "@e1",
+      "position": 1
+    },
+    {
+      "ref": "@e6",
+      "role": "heading",
+      "name": "12 results for \"widget\"",
+      "parent": "@e5"
+    },
+    {
+      "ref": "@e7",
+      "role": "link",
+      "name": "Widget Pro — $49",
+      "parent": "@e5",
+      "position": 1
+    },
+    {
+      "ref": "@e8",
+      "role": "link",
+      "name": "Widget Mini — $19",
+      "parent": "@e5",
+      "position": 2
+    },
+    {
+      "ref": "@e9",
+      "role": "link",
+      "name": "Industrial Widget — $299",
+      "parent": "@e5",
+      "position": 3
+    }
+  ]
+}
