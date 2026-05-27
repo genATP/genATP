@@ -33,7 +33,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 authors = ["genATP contributors"]
 edition = "2024"
 rust-version = "1.95"
@@ -70,8 +70,25 @@ hex = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 zstd = "0.13"
 async-trait = "0.1"
+# Phase 3 — LLM clients + orchestrator
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls",
+  "stream",
+  "gzip",
+] }
+fastrand = "2"
+futures = "0.3"
+chrono = { version = "0.4", default-features = false, features = [
+  "clock",
+  "serde",
+] }
+# Phase 4 — MCP server v0.1
+clap = { version = "4", features = ["derive", "env"] }
+base64 = "0.22"
 # dev-only — fixture HTTP server + benchmarks + property/snapshot tests
 axum = "0.8"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
 criterion = { version = "0.7", default-features = false, features = [
   "plotters",
   "rayon",

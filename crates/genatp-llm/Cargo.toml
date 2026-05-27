@@ -1,6 +1,6 @@
 [package]
 name = "genatp-llm"
-description = "LLM provider trait + adapters (Anthropic, OpenAI, Google, Mistral, Ollama, vLLM). Phase 3 implementation."
+description = "LLM provider trait + adapters (Anthropic, OpenAI, Ollama; Google/Mistral/vLLM scaffolded). Phase 3."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -13,4 +13,25 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["http"]
+# Enables real HTTP providers (Anthropic, OpenAI, Ollama). Disable to build
+# the trait + Mock + VCR-only stack for embedded / no-net builds.
+http = ["dep:reqwest"]
+
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+reqwest = { workspace = true, optional = true }
+genatp-perception = { path = "../genatp-perception" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }

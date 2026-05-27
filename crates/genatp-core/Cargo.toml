@@ -1,6 +1,6 @@
 [package]
 name = "genatp-core"
-description = "Orchestrator: plan loop, action dispatcher, budget guard, retry policy. Phase 3 implementation."
+description = "Orchestrator: plan loop, action dispatcher, budget guard, retry policy, event log. Phase 3."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -14,3 +14,22 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+fastrand = { workspace = true }
+genatp-browser = { path = "../genatp-browser" }
+genatp-perception = { path = "../genatp-perception" }
+genatp-llm = { path = "../genatp-llm" }
+
+[dev-dependencies]
+proptest = { workspace = true }
+tempfile = { workspace = true }
+url = { workspace = true }
+axum = { workspace = true }

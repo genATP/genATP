@@ -29,7 +29,7 @@ use chromiumoxide::Browser;
 use futures_util::StreamExt;
 use tokio::task::JoinHandle;
 
-pub use crate::cdp::{AccessibilityTree, AxNodeJson, Page};
+pub use crate::cdp::{AccessibilityTree, AxNodeJson, AxPropertyJson, Page};
 pub use crate::error::{BrowserError, Result};
 pub use crate::launch::LaunchOptions;
 pub use crate::pool::{BrowserPool, PoolConfig};

@@ -6,7 +6,7 @@
 *Generative Agent Test Protocol — one install, any agent, any LLM, 10× fewer tokens.*
 
 [![License: Personal Use](https://img.shields.io/badge/license-Personal%20Use-orange.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#roadmap)
+[![Status](https://img.shields.io/badge/status-v0.1.0-blue.svg)](#roadmap)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blue.svg)](#contributing)
 
 [Quickstart](#quickstart) · [Why genATP](#why-genatp) · [Docs](./docs) · [Roadmap](#roadmap)
@@ -55,48 +55,49 @@ Plus the modern essentials: token-optimized snapshots, encrypted auth vault, aut
 
 ---
 
-## Quickstart
+## Quickstart (v0.1.0 — MCP server)
 
-### 1. Install
+The first public release ships the **MCP server** so any MCP-compatible
+LLM client can drive a browser. Python and TypeScript SDKs land in
+v0.2.0 (Phase 5).
 
-```bash
-# Python
-pip install genatp
-
-# TypeScript / Node
-npm install genatp
-
-# CLI only (Homebrew on macOS, Scoop on Windows, apt on Linux)
-brew install genatp
-```
-
-### 2. Initialize
+### 1. Build
 
 ```bash
-genatp init
-# ↳ stores your LLM key in OS keychain, fetches Chromium if not present
+git clone https://github.com/genatp/genatp && cd genatp
+cargo build --release -p genatp-cli
+cargo install --path crates/genatp-cli
+genatp version
+# genatp 0.1.0
 ```
 
-### 3. Run your first agent
+### 2. Wire it into Claude Desktop
 
-```python
-from genatp import Agent
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
+(macOS / Linux) or `%APPDATA%\Claude\claude_desktop_config.json`
+(Windows):
 
-agent = Agent(model="claude-sonnet-4.5")
-result = agent.run("Find the cheapest direct SFO → JFK flight next Friday.")
-print(result.summary)
-# ↳ tokens: 4,812 · cost: $0.0134 · time: 9.1s
+```json
+{
+  "mcpServers": {
+    "genatp": {
+      "command": "genatp",
+      "args": ["serve", "--stdio"]
+    }
+  }
+}
 ```
 
-```typescript
-import { Agent } from "genatp";
+Restart Claude Desktop. The MCP indicator shows `genatp` connected.
 
-const agent = new Agent({ model: "claude-sonnet-4.5" });
-const result = await agent.run("Find the cheapest direct SFO → JFK flight next Friday.");
-console.log(result.summary);
-```
+### 3. Ask it to browse
 
-That's it. No Browserbase account. No separate MCP server. No CAPTCHA vendor. No proxy setup.
+> *"Open github.com/genatp/genatp and tell me what's in the README."*
+
+Claude calls genATP's `navigate` → `snapshot` → `extract` tools and
+returns the answer. Full tool reference: [docs/MCP.md](./docs/MCP.md).
+
+Cursor and the MCP Inspector are wired the same way — see the docs.
 
 ---
 

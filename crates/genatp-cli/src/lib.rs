@@ -1,12 +1,22 @@
 //! `genatp-cli` — clap-based command-line interface.
 //!
-//! Implementation timeline: structure **Phase 0**; subcommands fill in across
-//! Phases 4 (`serve`), 7 (`record`), 8 (`run`), 9 (`test`), 13 (`replay`), 14 (`install`).
-//! This crate is currently a Phase 0 stub. See [`docs/DEVELOPMENT_PLAN.md`].
+//! Phase 4 surface (`v0.1.0`):
 //!
-//! [`docs/DEVELOPMENT_PLAN.md`]: ../../../docs/DEVELOPMENT_PLAN.md
+//! ```text
+//! genatp serve --stdio        # spawn an MCP server on stdin/stdout (default)
+//! genatp serve --port 3000    # bind an HTTP MCP server on 127.0.0.1:3000
+//! genatp version              # print version
+//! ```
+//!
+//! Future phases extend this with `record`, `run`, `test`, `replay`,
+//! `install` subcommands.
 
 #![forbid(unsafe_code)]
+
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+use tracing_subscriber::EnvFilter;
 
 /// Returns this crate's package version.
 #[must_use]
@@ -14,19 +24,135 @@ pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-/// Phase 0 placeholder: prints a hello banner so the release smoke test has
-/// observable output. Replaced with a clap dispatcher in Phase 4.
+/// Top-level CLI definition.
+#[derive(Debug, Parser)]
+#[command(
+    name = "genatp",
+    version,
+    about = "genATP — agent-grade browser automation"
+)]
+pub struct Cli {
+    /// Verbose logging — `-v` for `INFO`, `-vv` for `DEBUG`. Logs go to
+    /// stderr so stdout stays clean for the MCP stdio transport.
+    #[arg(short = 'v', long = "verbose", action = clap::ArgAction::Count, global = true)]
+    pub verbose: u8,
+
+    /// Subcommand to run.
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+/// All supported subcommands.
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    /// Print version and exit.
+    Version,
+    /// Start an MCP server (stdio or HTTP transport).
+    Serve(ServeArgs),
+}
+
+/// Arguments for `genatp serve`.
+#[derive(Debug, clap::Args)]
+pub struct ServeArgs {
+    /// Use the stdio (newline-delimited JSON-RPC) transport. This is
+    /// the default and the transport expected by Claude Desktop,
+    /// Cursor, and the MCP Inspector.
+    #[arg(long, conflicts_with = "port", default_value_t = true)]
+    pub stdio: bool,
+
+    /// Bind an HTTP transport on `127.0.0.1:<port>`. Mutually exclusive
+    /// with `--stdio`.
+    #[arg(long)]
+    pub port: Option<u16>,
+
+    /// Launch Chrome in headed mode (visible window). Default is
+    /// headless. Useful for debugging.
+    #[arg(long)]
+    pub headed: bool,
+
+    /// Persistent user-data directory. Defaults to a fresh temp
+    /// directory (ephemeral). Pass an existing path to reuse cookies
+    /// across runs.
+    #[arg(long, env = "GENATP_USER_DATA_DIR")]
+    pub user_data_dir: Option<PathBuf>,
+}
+
+/// Configure tracing once. Logs unconditionally go to stderr — stdout
+/// is reserved for the MCP stdio transport's JSON-RPC traffic. The
+/// CLI tolerates being called more than once (subsequent calls
+/// silently no-op via `try_init`).
+fn init_tracing(verbose: u8) {
+    let default = match verbose {
+        0 => "warn",
+        1 => "info",
+        _ => "debug",
+    };
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
+}
+
+/// Parse `argv` and dispatch. Returns the intended process exit code.
+///
+/// This is the synchronous entrypoint called from `main`. It builds a
+/// fresh `tokio` runtime so the binary itself doesn't depend on
+/// `tokio::main` — keeping the binary surface lean.
+#[must_use]
 pub fn run() -> i32 {
-    println!(
-        "genATP {} — Phase 0 scaffold. See docs/DEVELOPMENT_PLAN.md.",
-        version()
-    );
-    0
+    let cli = Cli::parse();
+    init_tracing(cli.verbose);
+    match cli.command {
+        None => {
+            // `genatp` with no args prints a banner so the user
+            // isn't left wondering what to do.
+            println!("genatp {} — try `genatp --help`", version());
+            0
+        }
+        Some(Command::Version) => {
+            println!("genatp {}", version());
+            0
+        }
+        Some(Command::Serve(args)) => match run_serve(args) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: serve failed: {e:#}");
+                1
+            }
+        },
+    }
+}
+
+fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(async move {
+        let session_cfg = genatp_mcp::SessionConfig {
+            headless: !args.headed,
+            user_data_dir: args.user_data_dir.clone(),
+            pool_capacity: 1,
+        };
+        let session = genatp_mcp::McpSession::new(session_cfg).await?;
+        let server = genatp_mcp::McpServer::new(session);
+
+        if let Some(port) = args.port {
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+            tracing::info!(%addr, "starting MCP HTTP server");
+            genatp_mcp::http::serve(server, addr).await?;
+        } else {
+            tracing::info!("starting MCP stdio server");
+            genatp_mcp::stdio::serve(server).await?;
+        }
+        Ok::<(), anyhow::Error>(())
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{run, version};
+    use super::*;
+    use clap::Parser;
 
     #[test]
     fn version_is_non_empty() {
@@ -34,7 +160,49 @@ mod tests {
     }
 
     #[test]
-    fn run_returns_success_exit_code() {
-        assert_eq!(run(), 0);
+    fn parse_serve_stdio_default() {
+        let cli = Cli::try_parse_from(["genatp", "serve"]).unwrap();
+        match cli.command {
+            Some(Command::Serve(a)) => {
+                assert!(a.stdio);
+                assert!(a.port.is_none());
+            }
+            _ => panic!("expected serve subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_serve_port() {
+        let cli = Cli::try_parse_from(["genatp", "serve", "--port", "3000"]).unwrap();
+        match cli.command {
+            Some(Command::Serve(a)) => assert_eq!(a.port, Some(3000)),
+            _ => panic!("expected serve subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_serve_rejects_stdio_and_port_together() {
+        let err = Cli::try_parse_from(["genatp", "serve", "--stdio", "--port", "3000"])
+            .expect_err("must conflict");
+        assert!(format!("{err}").contains("cannot be used with"));
+    }
+
+    #[test]
+    fn parse_version_subcommand() {
+        let cli = Cli::try_parse_from(["genatp", "version"]).unwrap();
+        assert!(matches!(cli.command, Some(Command::Version)));
+    }
+
+    #[test]
+    fn parse_headed_and_user_data_dir() {
+        let cli = Cli::try_parse_from(["genatp", "serve", "--headed", "--user-data-dir", "/tmp/x"])
+            .unwrap();
+        match cli.command {
+            Some(Command::Serve(a)) => {
+                assert!(a.headed);
+                assert_eq!(a.user_data_dir, Some(PathBuf::from("/tmp/x")));
+            }
+            _ => panic!("expected serve"),
+        }
     }
 }

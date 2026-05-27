@@ -20,10 +20,18 @@ ignore = []
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Path-only deps (intra-workspace) inherently can't be a wildcard supply-chain
+# risk — they resolve to a local path, not a registry version. Without this,
+# every `genatp-foo = { path = "../genatp-foo" }` line trips the wildcard ban.
+allow-wildcard-paths = true
 highlight = "all"
 
 [licenses]
 confidence-threshold = 0.8
+# Keep this list **only** to licenses we actually encounter in the graph.
+# cargo-deny emits a `license-not-encountered` warning for unused entries,
+# so we treat the list as a living audit trail: every entry corresponds to
+# at least one transitive dependency.
 allow = [
   "Apache-2.0",
   "Apache-2.0 WITH LLVM-exception",
@@ -31,15 +39,16 @@ allow = [
   "BSD-2-Clause",
   "BSD-3-Clause",
   "ISC",
-  "Unicode-DFS-2016",
   "Unicode-3.0",
   "Zlib",
   "MPL-2.0",
   "CC0-1.0",
-  "CC-BY-4.0",
   "0BSD",
   "BSL-1.0",
-  "OpenSSL",
+  # Mozilla's `webpki-roots` (CA bundle for rustls) ships under this
+  # permissive Linux Foundation license; vetted as compatible with our
+  # personal/commercial dual-license model.
+  "CDLA-Permissive-2.0",
   "LicenseRef-genATP-Personal-Use-1.0",
 ]
 exceptions = []

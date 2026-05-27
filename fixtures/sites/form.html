@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>genATP Fixture — Form Fill</title>
+    <meta name="description" content="Phase 3 fixture page. Five-step form-fill task.">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+        label { display: block; margin-top: 0.75rem; font-weight: 600; }
+        input[type="text"], input[type="email"], textarea {
+            width: 100%; padding: 0.5rem; font-size: 1rem; box-sizing: border-box;
+        }
+        button { margin-top: 1rem; padding: 0.6rem 1rem; font-size: 1rem; cursor: pointer; }
+        #result { margin-top: 1rem; padding: 0.75rem; background: #efe; border: 1px solid #cdc; display: none; }
+        #result[data-shown="true"] { display: block; }
+    </style>
+</head>
+<body>
+    <h1 id="page-heading">Sign-up Form</h1>
+    <p>This page is the Phase 3 acceptance fixture. An agent must (1) fill the name field,
+       (2) fill the email field, (3) fill the message field, (4) tick the agreement checkbox,
+       and (5) submit the form.</p>
+
+    <form id="signup-form" aria-label="signup">
+        <label for="name-input">Name</label>
+        <input id="name-input" name="name" type="text" data-testid="name" required>
+
+        <label for="email-input">Email</label>
+        <input id="email-input" name="email" type="email" data-testid="email" required>
+
+        <label for="message-input">Message</label>
+        <textarea id="message-input" name="message" data-testid="message" rows="3" required></textarea>
+
+        <label>
+            <input id="agree-checkbox" name="agree" type="checkbox" data-testid="agree" required>
+            I agree to the terms.
+        </label>
+
+        <button id="submit-button" type="submit" data-testid="submit">Submit</button>
+    </form>
+
+    <div id="result" role="status" aria-live="polite">
+        <strong>Submitted</strong>:
+        <span id="result-name"></span> &lt;<span id="result-email"></span>&gt;
+        — <span id="result-message"></span>
+    </div>
+
+    <script>
+        const form = document.getElementById('signup-form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const data = new FormData(form);
+            document.getElementById('result-name').textContent = data.get('name') || '';
+            document.getElementById('result-email').textContent = data.get('email') || '';
+            document.getElementById('result-message').textContent = data.get('message') || '';
+            const result = document.getElementById('result');
+            result.setAttribute('data-shown', 'true');
+        });
+    </script>
+</body>
+</html>

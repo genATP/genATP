@@ -22,3 +22,12 @@ name = "genatp_cli"
 path = "src/lib.rs"
 
 [dependencies]
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+genatp-mcp = { path = "../genatp-mcp" }
+genatp-browser = { path = "../genatp-browser" }

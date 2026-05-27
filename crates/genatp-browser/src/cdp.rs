@@ -29,6 +29,14 @@ pub struct Page {
     op_timeout: Duration,
 }
 
+impl std::fmt::Debug for Page {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Page")
+            .field("op_timeout", &self.op_timeout)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Page {
     /// Wrap an existing `chromiumoxide::Page`.
     #[must_use]
@@ -110,6 +118,223 @@ impl Page {
         self.inner.close().await?;
         Ok(())
     }
+
+    /// Click the DOM element identified by CDP `backendNodeId` (the value
+    /// captured in [`AxNodeJson::backend_dom_node_id`]).
+    ///
+    /// Scrolls the node into view, then invokes `.click()` on its
+    /// resolved `RemoteObject` via `Runtime.callFunctionOn`. This matches
+    /// Playwright / Puppeteer's click behaviour for nodes whose visibility
+    /// is already established.
+    ///
+    /// # Errors
+    /// Returns [`BrowserError::Cdp`] on transport/CDP failures, and
+    /// [`BrowserError::Timeout`] if the operation exceeds the configured
+    /// op timeout.
+    pub async fn click_node(&self, backend_node_id: &str) -> Result<()> {
+        use chromiumoxide::cdp::browser_protocol::dom::{
+            BackendNodeId, ResolveNodeParams, ScrollIntoViewIfNeededParams,
+        };
+        use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
+
+        let bid_i: i64 = backend_node_id.parse().map_err(|_| {
+            BrowserError::Cdp(format!("non-integer backend node id `{backend_node_id}`"))
+        })?;
+        let backend_id = BackendNodeId::new(bid_i);
+
+        let _ = self
+            .inner
+            .execute(
+                ScrollIntoViewIfNeededParams::builder()
+                    .backend_node_id(backend_id)
+                    .build(),
+            )
+            .await?;
+
+        let resolved = self
+            .inner
+            .execute(
+                ResolveNodeParams::builder()
+                    .backend_node_id(backend_id)
+                    .build(),
+            )
+            .await?;
+        let object_id = resolved
+            .result
+            .object
+            .object_id
+            .clone()
+            .ok_or_else(|| BrowserError::Cdp("resolve node returned no object id".into()))?;
+
+        let params = CallFunctionOnParams::builder()
+            .function_declaration("function() { this.click(); }")
+            .object_id(object_id)
+            .return_by_value(true)
+            .await_promise(true)
+            .build()
+            .map_err(|e| BrowserError::Cdp(format!("call-fn builder: {e}")))?;
+
+        match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(err)) => Err(BrowserError::Cdp(err.to_string())),
+            Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
+        }
+    }
+
+    /// Fill an `<input>` / `<textarea>` element by CDP `backendNodeId`
+    /// with `value`. Dispatches `input` + `change` events afterwards so
+    /// JS-driven frameworks observe the change.
+    ///
+    /// # Errors
+    /// As for [`Self::click_node`].
+    pub async fn fill_node(&self, backend_node_id: &str, value: &str) -> Result<()> {
+        use chromiumoxide::cdp::browser_protocol::dom::{BackendNodeId, ResolveNodeParams};
+        use chromiumoxide::cdp::js_protocol::runtime::{CallArgument, CallFunctionOnParams};
+
+        let bid_i: i64 = backend_node_id.parse().map_err(|_| {
+            BrowserError::Cdp(format!("non-integer backend node id `{backend_node_id}`"))
+        })?;
+        let backend_id = BackendNodeId::new(bid_i);
+
+        let resolved = self
+            .inner
+            .execute(
+                ResolveNodeParams::builder()
+                    .backend_node_id(backend_id)
+                    .build(),
+            )
+            .await?;
+        let object_id = resolved
+            .result
+            .object
+            .object_id
+            .clone()
+            .ok_or_else(|| BrowserError::Cdp("resolve node returned no object id".into()))?;
+
+        let fn_decl = "function(v) {\
+            const tag = (this.tagName || '').toLowerCase();\
+            if (tag === 'input' || tag === 'textarea') {\
+                const proto = tag === 'input' ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;\
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;\
+                setter.call(this, v);\
+            } else {\
+                this.value = v;\
+            }\
+            this.dispatchEvent(new Event('input', { bubbles: true }));\
+            this.dispatchEvent(new Event('change', { bubbles: true }));\
+        }";
+
+        let arg = CallArgument::builder()
+            .value(serde_json::Value::String(value.to_string()))
+            .build();
+        let params = CallFunctionOnParams::builder()
+            .function_declaration(fn_decl)
+            .object_id(object_id)
+            .return_by_value(true)
+            .await_promise(true)
+            .argument(arg)
+            .build()
+            .map_err(|e| BrowserError::Cdp(format!("fill builder: {e}")))?;
+        match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(err)) => Err(BrowserError::Cdp(err.to_string())),
+            Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
+        }
+    }
+
+    /// Send a single keystroke (e.g. `"Enter"`, `"Tab"`) to the page. The
+    /// key is delivered as a `keyDown` immediately followed by a `keyUp`.
+    ///
+    /// # Errors
+    /// As for [`Self::click_node`].
+    pub async fn press_key(&self, key: &str) -> Result<()> {
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchKeyEventParams, DispatchKeyEventType,
+        };
+        for kind in [DispatchKeyEventType::KeyDown, DispatchKeyEventType::KeyUp] {
+            let params = DispatchKeyEventParams::builder()
+                .r#type(kind)
+                .key(key)
+                .build()
+                .map_err(|e| BrowserError::Cdp(format!("key event builder: {e}")))?;
+            match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => return Err(BrowserError::Cdp(err.to_string())),
+                Err(_) => return Err(BrowserError::Timeout(self.op_timeout)),
+            }
+        }
+        Ok(())
+    }
+
+    /// Capture a full-viewport PNG screenshot. Returns the raw PNG bytes;
+    /// callers wrap in base64 / save to disk as they see fit.
+    ///
+    /// # Errors
+    /// As for [`Self::click_node`].
+    pub async fn screenshot_png(&self) -> Result<Vec<u8>> {
+        use base64::Engine as _;
+        use chromiumoxide::cdp::browser_protocol::page::{
+            CaptureScreenshotFormat, CaptureScreenshotParams,
+        };
+
+        let params = CaptureScreenshotParams::builder()
+            .format(CaptureScreenshotFormat::Png)
+            .build();
+        let resp = tokio::time::timeout(self.op_timeout, self.inner.execute(params))
+            .await
+            .map_err(|_| BrowserError::Timeout(self.op_timeout))??;
+        // CDP returns the screenshot as a base64 string (chromiumoxide
+        // exposes it via the `Binary` newtype around `String`).
+        let data: &str = resp.result.data.as_ref();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .map_err(|e| BrowserError::Cdp(format!("screenshot base64 decode: {e}")))?;
+        Ok(bytes)
+    }
+
+    /// Navigate back in the session history. Returns `true` if the
+    /// browser actually moved; `false` if there was nothing to go back
+    /// to.
+    ///
+    /// # Errors
+    /// As for [`Self::click_node`].
+    pub async fn go_back(&self) -> Result<bool> {
+        use chromiumoxide::cdp::browser_protocol::page::{
+            GetNavigationHistoryParams, NavigateToHistoryEntryParams,
+        };
+
+        let history = self
+            .inner
+            .execute(GetNavigationHistoryParams::default())
+            .await?;
+        let current_index = history.result.current_index;
+        if current_index <= 0 {
+            return Ok(false);
+        }
+        let target = &history.result.entries[(current_index - 1) as usize];
+        self.inner
+            .execute(NavigateToHistoryEntryParams::new(target.id))
+            .await?;
+        Ok(true)
+    }
+
+    /// Scroll the viewport by relative pixels via `window.scrollBy`.
+    ///
+    /// # Errors
+    /// As for [`Self::click_node`].
+    pub async fn scroll_by(&self, dx: i32, dy: i32) -> Result<()> {
+        use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
+        let params = EvaluateParams::builder()
+            .expression(format!("window.scrollBy({dx}, {dy})"))
+            .return_by_value(true)
+            .build()
+            .map_err(|e| BrowserError::Cdp(format!("scroll builder: {e}")))?;
+        match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(err)) => Err(BrowserError::Cdp(err.to_string())),
+            Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
+        }
+    }
 }
 
 /// Owned, simplified projection of a Chrome accessibility tree.
@@ -126,6 +351,14 @@ impl AccessibilityTree {
         Self {
             nodes: nodes.into_iter().map(AxNodeJson::from_cdp).collect(),
         }
+    }
+
+    /// Build a tree from already-projected nodes. Used by `genatp-core`
+    /// tests and the perception bridge to construct fixtures without
+    /// touching CDP wire types.
+    #[must_use]
+    pub fn from_nodes(nodes: Vec<AxNodeJson>) -> Self {
+        Self { nodes }
     }
 
     /// Total number of accessibility nodes in the tree.
@@ -157,34 +390,104 @@ impl AccessibilityTree {
 /// Lightweight, JSON-friendly mirror of `chromiumoxide`'s `AxNode`.
 ///
 /// We don't expose the upstream type directly to keep its churn isolated
-/// from perception/orchestrator consumers.
+/// from perception/orchestrator consumers. Phase 3 expanded this struct to
+/// preserve parent/child relationships, current `value`, boolean ARIA
+/// properties, and the underlying DOM `backendNodeId` — the perception
+/// engine ([`genatp-perception`]) needs the first set, the orchestrator
+/// needs the last one to dispatch DOM-level actions like `.click()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AxNodeJson {
-    /// Stable per-snapshot node ID (matches Chrome's `nodeId`).
+    /// Accessibility node ID (Chrome's `Accessibility.AXNodeId`). Different
+    /// namespace from `DOM.NodeId` / `DOM.BackendNodeId` — only use it as
+    /// an identifier within this tree.
     pub node_id: String,
+    /// Parent node id, or `None` for the root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    /// Ordered list of child ids (document order).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub child_ids: Vec<String>,
     /// ARIA / HTML role (e.g. `"button"`, `"link"`, `"text"`).
     pub role: Option<String>,
     /// Accessible name (button label, link text, …).
     pub name: Option<String>,
+    /// Current value (input value, slider position, …).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
     /// Accessible description (often `aria-describedby`).
     pub description: Option<String>,
+    /// Boolean ARIA properties (focused / selected / disabled / …). Each
+    /// property is encoded as `(name, value)` so this stays portable to JSON.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub properties: Vec<AxPropertyJson>,
+    /// CDP `backendNodeId` of the underlying DOM node (when one exists).
+    /// `None` for synthetic nodes (`WebArea`, etc). Used by the
+    /// orchestrator's action dispatcher to drive clicks / fills.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_dom_node_id: Option<i64>,
     /// Whether the node is currently in the a11y tree (chrome ignores some).
     pub ignored: bool,
 }
 
+/// One ARIA property pair captured from CDP. Property names are lower-cased
+/// to match the convention used elsewhere in the perception pipeline.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AxPropertyJson {
+    /// Property name (e.g. `"focused"`, `"selected"`, `"disabled"`).
+    pub name: String,
+    /// Property value as a string (`"true"`, `"false"`, `"mixed"`, …).
+    pub value: String,
+}
+
 impl AxNodeJson {
     fn from_cdp(node: AxNode) -> Self {
-        let extract =
-            |opt: Option<chromiumoxide::cdp::browser_protocol::accessibility::AxValue>| {
-                opt.and_then(|v| v.value)
-                    .and_then(|v| v.as_str().map(String::from))
+        let extract_str = |opt: Option<
+            chromiumoxide::cdp::browser_protocol::accessibility::AxValue,
+        >|
+         -> Option<String> {
+            opt.and_then(|v| v.value).map(|v| match v {
+                serde_json::Value::String(s) => s,
+                other => other.to_string(),
+            })
+        };
+
+        let property_value =
+            |v: chromiumoxide::cdp::browser_protocol::accessibility::AxValue| -> String {
+                v.value
+                    .map(|raw| match raw {
+                        serde_json::Value::String(s) => s,
+                        other => other.to_string(),
+                    })
+                    .unwrap_or_default()
             };
+
+        let properties = node
+            .properties
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| AxPropertyJson {
+                name: format!("{:?}", p.name).to_lowercase(),
+                value: property_value(p.value),
+            })
+            .collect();
+
+        let child_ids = node
+            .child_ids
+            .unwrap_or_default()
+            .into_iter()
+            .map(|id| id.inner().clone())
+            .collect();
 
         Self {
             node_id: node.node_id.inner().clone(),
-            role: extract(node.role),
-            name: extract(node.name),
-            description: extract(node.description),
+            parent_id: node.parent_id.map(|id| id.inner().clone()),
+            child_ids,
+            role: extract_str(node.role),
+            name: extract_str(node.name),
+            value: extract_str(node.value),
+            description: extract_str(node.description),
+            properties,
+            backend_dom_node_id: node.backend_dom_node_id.map(|b| *b.inner()),
             ignored: node.ignored,
         }
     }
@@ -222,9 +525,14 @@ mod tests {
                 .into_iter()
                 .map(|(role, name)| AxNodeJson {
                     node_id: "1".into(),
+                    parent_id: None,
+                    child_ids: vec![],
                     role: Some(role.into()),
                     name: Some(name.into()),
+                    value: None,
                     description: None,
+                    properties: vec![],
+                    backend_dom_node_id: None,
                     ignored: false,
                 })
                 .collect(),
@@ -245,9 +553,14 @@ mod tests {
     fn unknown_role_is_not_interactive() {
         let n = AxNodeJson {
             node_id: "1".into(),
+            parent_id: None,
+            child_ids: vec![],
             role: Some("paragraph".into()),
             name: None,
+            value: None,
             description: None,
+            properties: vec![],
+            backend_dom_node_id: None,
             ignored: false,
         };
         assert!(!n.is_interactive());
@@ -257,9 +570,14 @@ mod tests {
     fn missing_role_is_not_interactive() {
         let n = AxNodeJson {
             node_id: "1".into(),
+            parent_id: None,
+            child_ids: vec![],
             role: None,
             name: None,
+            value: None,
             description: None,
+            properties: vec![],
+            backend_dom_node_id: None,
             ignored: false,
         };
         assert!(!n.is_interactive());
