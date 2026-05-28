@@ -263,11 +263,13 @@ this with capability-gated, per-domain credential sealing.
   — if the LLM is hostile, *anything* it can reach in your browser
   profile is reachable. Use a fresh `--user-data-dir` for untrusted
   agents.
-- **API keys**: genATP itself does **not** read any provider API key.
-  The MCP server only drives Chrome — LLM API keys live in the client
+- **API keys**: the MCP server itself does **not** read any provider
+  API key — it only drives Chrome, so LLM API keys live in the *client*
   (Claude Desktop, Cursor, etc.). genATP's separate LLM client
-  (`genatp-llm`) reads keys from `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`
-  env vars and never logs them.
+  (`genatp-llm`) reads keys from `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+  `NVIDIA_API_KEY`, or the local Ollama daemon — see
+  [`CONFIGURATION.md`](./CONFIGURATION.md) for the full list — and
+  never logs them.
 
 ---
 

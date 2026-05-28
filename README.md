@@ -244,6 +244,8 @@ Full system, container, component, and deployment diagrams in [`docs/ARCHITECTUR
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System / container / component diagrams, data flow, security model |
 | [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) | 18-phase build plan, tech stack, testing gates, release cadence |
 | [`docs/USER_FLOWS.md`](./docs/USER_FLOWS.md) | End-to-end journeys for each persona, with sequence diagrams |
+| [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) | Provider selection (Ollama / Anthropic / OpenAI / NVIDIA NIM), env vars, `.env` |
+| [`docs/MCP.md`](./docs/MCP.md) | MCP server setup for Claude Desktop, Cursor, MCP Inspector |
 
 ---
 

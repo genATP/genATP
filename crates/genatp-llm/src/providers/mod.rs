@@ -16,6 +16,7 @@
 
 #[cfg(feature = "http")]
 pub mod anthropic;
+pub mod factory;
 #[cfg(feature = "http")]
 pub mod ollama;
 #[cfg(feature = "http")]

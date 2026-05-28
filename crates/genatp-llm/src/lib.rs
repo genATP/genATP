@@ -20,10 +20,19 @@
 //! - Anthropic ([`providers::anthropic::AnthropicProvider`])
 //! - OpenAI ([`providers::openai::OpenAiProvider`])
 //! - Ollama ([`providers::ollama::OllamaProvider`])
+//! - NVIDIA NIM via [`providers::factory`] (OpenAI-wire compatible)
 //!
 //! Google, Mistral, and vLLM ship as documented placeholders
 //! ([`providers::placeholders`]) returning [`LlmError::NotImplemented`].
 //! They land in v0.4 once we wire up VCR fixtures for each.
+//!
+//! ## Auto-selecting a provider from the environment
+//!
+//! [`providers::factory::resolve_from_env`] returns a ready-to-use
+//! `Arc<dyn LlmProvider>` based on which credentials are set. End users
+//! configure genATP through environment variables — see
+//! `docs/CONFIGURATION.md` and the `.env.example` at the repo root for
+//! the full list.
 //!
 //! ## VCR — record once, replay always
 //!
@@ -50,6 +59,9 @@ pub mod vcr;
 pub use error::{LlmError, Result};
 pub use mock::MockProvider;
 pub use provider::LlmProvider;
+pub use providers::factory::ProviderKind;
+#[cfg(feature = "http")]
+pub use providers::factory::{ResolvedProvider, build as build_provider, resolve_from_env};
 pub use types::{
     CompletionRequest, CompletionResponse, FinishReason, Message, Role, SamplingParams, ToolCall,
     ToolDefinition, Usage,
