@@ -16,6 +16,8 @@ patch releases.
 
 from __future__ import annotations
 
+from genatp._native import build_info as _build_info
+from genatp._native import version as _native_version
 from genatp._types import (
     BudgetSpend,
     ProviderInfo,
@@ -26,9 +28,6 @@ from genatp.agent import Agent
 from genatp.browser import BrowserSession
 from genatp.errors import GenAtpError, ProviderError, RunError
 from genatp.providers import resolve_provider_from_env
-
-from genatp._native import build_info as _build_info
-from genatp._native import version as _native_version
 
 
 def _package_version() -> str:

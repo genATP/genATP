@@ -11,7 +11,6 @@ If a new ``#[pyfunction]`` or ``#[pyclass]`` lands in
 
 from typing import final
 
-
 @final
 class NativeRunResult:
     outcome: str
@@ -23,7 +22,6 @@ class NativeRunResult:
 
     def __repr__(self) -> str: ...
 
-
 @final
 class NativeProviderInfo:
     kind: str
@@ -32,7 +30,6 @@ class NativeProviderInfo:
 
     def __repr__(self) -> str: ...
 
-
 @final
 class NativeToolDescriptor:
     name: str
@@ -40,7 +37,6 @@ class NativeToolDescriptor:
     input_schema_json: str
 
     def __repr__(self) -> str: ...
-
 
 @final
 class NativeBrowserSession:
@@ -53,7 +49,6 @@ class NativeBrowserSession:
     def navigate(self, url: str) -> str: ...
     def snapshot(self) -> str: ...
     def close(self) -> None: ...
-
 
 def version() -> str: ...
 def resolve_provider_from_env() -> NativeProviderInfo: ...

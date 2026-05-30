@@ -74,7 +74,7 @@ def test_session_attached_to_tool_metadata() -> None:
     from genatp import langchain as adapter
 
     class FakeSession:
-        def call_tool(self, name: str, args: dict[str, object]) -> str:  # noqa: ARG002
+        def call_tool(self, name: str, args: dict[str, object]) -> str:
             return ""
 
         def snapshot(self) -> dict[str, object]:

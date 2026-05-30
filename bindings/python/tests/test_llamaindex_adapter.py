@@ -16,7 +16,7 @@ def test_as_llamaindex_tools_exposes_nine_tools() -> None:
     from genatp import llamaindex as adapter
 
     class FakeSession:
-        def call_tool(self, name: str, args: dict[str, object]) -> str:  # noqa: ARG002
+        def call_tool(self, name: str, args: dict[str, object]) -> str:
             return f"ok:{name}"
 
         def snapshot(self) -> dict[str, object]:

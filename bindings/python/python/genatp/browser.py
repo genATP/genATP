@@ -51,7 +51,7 @@ class BrowserSession:
     # Context-manager glue
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> "BrowserSession":
+    def __enter__(self) -> BrowserSession:
         return self
 
     def __exit__(
@@ -62,7 +62,7 @@ class BrowserSession:
     ) -> None:
         self.close()
 
-    async def __aenter__(self) -> "BrowserSession":
+    async def __aenter__(self) -> BrowserSession:
         return self
 
     async def __aexit__(
@@ -88,7 +88,7 @@ class BrowserSession:
         self._guard()
         try:
             return self._native.navigate(url)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RunError(str(exc)) from exc
 
     def snapshot(self) -> dict[str, object]:
@@ -101,7 +101,7 @@ class BrowserSession:
         self._guard()
         try:
             text = self._native.snapshot()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RunError(str(exc)) from exc
         return json.loads(text)
 
@@ -129,7 +129,7 @@ class BrowserSession:
         self._guard()
         try:
             text, is_error, kind = self._native.call_tool("screenshot", "{}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RunError(str(exc)) from exc
         if is_error:
             raise RunError(text)
@@ -165,7 +165,7 @@ class BrowserSession:
         self._guard()
         try:
             text, is_error, _kind = self._native.call_tool(name, json.dumps(args))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise RunError(str(exc)) from exc
         if is_error:
             raise RunError(text)

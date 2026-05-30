@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Final
 
 from genatp._native import resolve_provider_from_env as _resolve_native
-
 from genatp._types import ProviderInfo
 from genatp.errors import ProviderError
 
@@ -41,6 +40,6 @@ def resolve_provider_from_env() -> ProviderInfo:
     """
     try:
         native = _resolve_native()
-    except Exception as exc:  # noqa: BLE001 — convert PyO3 RuntimeError
+    except Exception as exc:
         raise ProviderError(str(exc)) from exc
     return ProviderInfo(kind=native.kind, name=native.name, model=native.model)

@@ -25,7 +25,7 @@ from genatp.errors import GenAtpError
 from genatp.tools import list_tools
 
 try:
-    from llama_index.core.tools import FunctionTool, ToolMetadata
+    from llama_index.core.tools import FunctionTool
 except ImportError as exc:  # pragma: no cover — optional dep
     raise ImportError(
         "llama-index-core is required for genatp.llamaindex — "
@@ -69,12 +69,6 @@ def _build_tool(
     description: str,
     input_schema: dict[str, Any],
 ) -> FunctionTool:
-    metadata = ToolMetadata(
-        name=name,
-        description=description,
-        fn_schema=None,  # rely on inferred signature; full schemas land in v0.6
-    )
-
     def _call(**kwargs: Any) -> str:
         filtered = {k: v for k, v in kwargs.items() if v is not None}
         if name == "snapshot":

@@ -122,7 +122,7 @@ class Agent:
                 provider=self.provider,
                 mock_reply=self.mock_reply,
             )
-        except Exception as exc:  # noqa: BLE001 — PyO3 RuntimeError
+        except Exception as exc:
             raise RunError(str(exc)) from exc
 
         spend = BudgetSpend(
