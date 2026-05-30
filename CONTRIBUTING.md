@@ -20,12 +20,25 @@ pre-commit install
 pre-commit install --hook-type pre-push
 
 # 4. Verify the workspace builds and tests cleanly
-cargo build --workspace
-cargo test --workspace
+cargo build --workspace --exclude genatp-python
+cargo test --workspace --exclude genatp-python
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 cargo deny check
 ```
+
+### Python SDK (`bindings/python/`)
+
+```bash
+# Install maturin (once): cargo install maturin --locked
+cd bindings/python
+maturin develop --release          # builds genatp._native + installs editable wheel
+python -m pytest tests/ -v       # pure-python + native smoke tests
+python examples/mock_smoke.py      # end-to-end with mock provider (needs Chrome)
+```
+
+Set `GENATP_PY_LIVE=1` and a provider API key to run live integration tests.
+See [`bindings/python/README.md`](./bindings/python/README.md).
 
 If any of those fail on a fresh clone of `main`, that is a P0 bug. Open an issue immediately.
 

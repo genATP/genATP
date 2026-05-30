@@ -1,31 +1,139 @@
-# Phase 5 deliverable. This pyproject.toml is a Phase 0 placeholder so
-# `bindings/python/` is a valid Python package shape from the start.
-# Maturin wiring + PyO3 deps land in Phase 5.
+# Phase 5 — Python SDK build configuration.
+#
+# `maturin` builds the Rust crate as a Python extension module and packages
+# the pure-Python wrapper under `python/genatp/` into the same wheel. The
+# resulting wheel is a normal `pip install genatp` install.
+
 [project]
 name = "genatp"
-version = "0.0.1"
+version = "0.2.0"
 description = "Python SDK for genATP — the unified web-access layer for AI agents."
-readme = "../../README.md"
+readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "../../LICENSE" }
+# SPDX-style id — the full text lives at the repo root LICENSE; maturin
+# rejects paths outside the project directory for license.file.
+license = "LicenseRef-genATP-Personal-Use-1.0"
 authors = [{ name = "genATP contributors" }]
+keywords = [
+  "agent",
+  "browser-automation",
+  "llm",
+  "mcp",
+  "playwright",
+  "stealth",
+  "webvoyager",
+]
 classifiers = [
-  "Development Status :: 1 - Planning",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "License :: Other/Proprietary License",
-  "Operating System :: OS Independent",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Rust",
+  "Topic :: Internet :: WWW/HTTP :: Browsers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = [
+  # Standard library only at runtime. The native extension is loaded from
+  # `genatp._native` and ships inside the wheel itself.
 ]
 
+[project.optional-dependencies]
+# Pull in just the integrations the user actually wants.
+langchain = ["langchain-core>=0.3,<1.0"]
+llamaindex = ["llama-index-core>=0.11,<1.0"]
+all = ["langchain-core>=0.3,<1.0", "llama-index-core>=0.11,<1.0"]
+dev = [
+  "pytest>=8.0,<9.0",
+  "pytest-asyncio>=0.23,<1.0",
+  "pytest-timeout>=2.3,<3.0",
+  "ruff>=0.6,<1.0",
+  "mypy>=1.11,<2.0",
+  "mkdocs>=1.6,<2.0",
+  "mkdocs-material>=9.5,<10.0",
+  "mkdocstrings[python]>=0.26,<1.0",
+  "langchain-core>=0.3,<1.0",
+  "llama-index-core>=0.11,<1.0",
+]
+
+[project.urls]
+Homepage = "https://genatp.dev"
+Documentation = "https://genatp.dev/docs/python/"
+Repository = "https://github.com/genatp/genatp"
+Issues = "https://github.com/genatp/genatp/issues"
+Changelog = "https://github.com/genatp/genatp/blob/main/CHANGELOG.md"
+
 [build-system]
-requires = ["maturin>=1.5,<2.0"]
+requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-# Filled in during Phase 5 once the PyO3 module exists.
-features = []
+# Native module name — must match the `#[pymodule] fn _native` symbol.
+module-name = "genatp._native"
+# Pure-Python sources live alongside the Rust crate so the wheel can ship
+# both in a single build.
+python-source = "python"
+# `abi3-py310` already encodes the stable ABI floor; this flag tells maturin
+# to produce one wheel per OS/arch instead of one per CPython version.
+features = ["extension-module"]
+strip = true
+manifest-path = "Cargo.toml"
+
+# ---------------------------------------------------------------------------
+# Tooling configuration — keep all dev dial-in here so contributors see one
+# file instead of three.
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config --timeout=60"
+asyncio_mode = "auto"
+markers = [
+  "live: end-to-end tests that launch real Chrome (gated on GENATP_PY_LIVE=1).",
+  "integration: tests that need the native module compiled (skipped in pure-Python lint runs).",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["python", "tests", "examples"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "W",   # pycodestyle / pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "C4",  # comprehensions
+  "SIM", # simplify
+  "RUF", # ruff-specific
+]
+ignore = [
+  "E501", # let formatter handle line length
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+"examples/**" = ["T201"] # examples may print
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+files = ["python/genatp", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["langchain_core.*", "llama_index.*"]
+ignore_missing_imports = true

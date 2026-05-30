@@ -17,7 +17,8 @@ members = [
 ]
 
 # Default members exclude bindings; CI runs them in dedicated jobs that
-# install Python / Node toolchains. `cargo test --workspace` builds everything.
+# install Python / Node toolchains. `cargo test/build --workspace` pass
+# `--exclude genatp-python` (PyO3 cdylib); pytest + maturin cover the SDK.
 default-members = [
   "crates/genatp-core",
   "crates/genatp-browser",

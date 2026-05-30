@@ -25,11 +25,11 @@ step() {
 
 step "cargo fmt (apply)" cargo fmt --all
 step "cargo fmt --check" cargo fmt --all -- --check
-step "cargo clippy" env RUSTFLAGS="-D warnings" cargo clippy --workspace --all-targets -- -D warnings
+step "cargo clippy" env RUSTFLAGS="-D warnings" cargo clippy --workspace --exclude genatp-python --all-targets -- -D warnings
 if [[ "$QUICK" -eq 1 ]]; then
-  step "cargo test (lib only, --quick)" cargo test --workspace --lib
+  step "cargo test (lib only, --quick)" cargo test --workspace --exclude genatp-python --lib
 else
-  step "cargo test --workspace" cargo test --workspace
+  step "cargo test --workspace" cargo test --workspace --exclude genatp-python
 fi
 step "cargo deny check" cargo deny check
 

@@ -39,12 +39,12 @@ Step "cargo fmt (apply)" { cargo fmt --all }
 Step "cargo fmt --check" { cargo fmt --all -- --check }
 Step "cargo clippy" {
     $env:RUSTFLAGS = "-D warnings"
-    cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --exclude genatp-python --all-targets -- -D warnings
 }
 if (-not $Quick) {
-    Step "cargo test --workspace" { cargo test --workspace }
+    Step "cargo test --workspace" { cargo test --workspace --exclude genatp-python }
 } else {
-    Step "cargo test (unit only, -Quick)" { cargo test --workspace --lib }
+    Step "cargo test (unit only, -Quick)" { cargo test --workspace --exclude genatp-python --lib }
 }
 Step "cargo deny check" { cargo deny check }
 

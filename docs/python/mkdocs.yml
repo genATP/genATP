@@ -1,0 +1,64 @@
+site_name: genATP Python SDK
+site_url: https://genatp.dev/docs/python/
+site_description: Python SDK reference for genATP — the unified web-access layer for AI agents.
+site_author: genATP contributors
+repo_url: https://github.com/genatp/genatp
+repo_name: genatp/genatp
+edit_uri: edit/main/docs/python/docs/
+docs_dir: docs
+
+# Build directory ends up outside the workspace so it doesn't collide
+# with the Rust `target/` cache.
+site_dir: ../../target/python-docs
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - navigation.sections
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - ../../bindings/python/python
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            merge_init_into_class: true
+            separate_signature: true
+
+nav:
+  - Overview: index.md
+  - Quickstart: quickstart.md
+  - Agent API: api/agent.md
+  - Browser session: api/browser.md
+  - LangChain adapter: api/langchain.md
+  - LlamaIndex adapter: api/llamaindex.md
+  - Tool catalogue: api/tools.md
+  - Errors: api/errors.md
+  - Providers: api/providers.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true

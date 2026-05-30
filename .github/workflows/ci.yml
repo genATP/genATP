@@ -39,7 +39,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: cargo clippy --workspace -- -D warnings
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude genatp-python --all-targets -- -D warnings
 
       # cargo-audit before cargo-deny; deny uses ~/.cargo/deny-advisory-db (see deny.toml)
       # so it does not collide with audit's ~/.cargo/advisory-db.
@@ -134,10 +134,10 @@ jobs:
         run: echo "CHROME_PATH=${{ steps.setup-chrome.outputs.chrome-path }}" >> $env:GITHUB_ENV
 
       - name: cargo build --workspace
-        run: cargo build --workspace --target ${{ matrix.target }} --verbose
+        run: cargo build --workspace --exclude genatp-python --target ${{ matrix.target }} --verbose
 
       - name: cargo test --workspace
-        run: cargo test --workspace --target ${{ matrix.target }} --verbose
+        run: cargo test --workspace --exclude genatp-python --target ${{ matrix.target }} --verbose
 
   # ----- coverage (one target only — codecov ratchet ≥ 70% workspace) -----
   coverage:

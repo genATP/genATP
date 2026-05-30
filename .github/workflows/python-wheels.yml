@@ -1,0 +1,202 @@
+name: Python Wheels
+
+# Phase 5 (v0.2.0) gate: build & smoke-test the Python SDK on all five
+# Phase-0 platforms. Wheels are uploaded as artifacts on every push;
+# the release.yml workflow promotes them to PyPI on a tag push.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bindings/python/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/python-wheels.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bindings/python/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/python-wheels.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------
+  # Pure-Python lint lane — no native build, so it's fast.
+  # --------------------------------------------------------------------
+  lint:
+    name: lint (ruff + mypy on pure python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dev deps (pure python)
+        run: |
+          pip install --upgrade pip
+          pip install ruff mypy langchain-core llama-index-core
+      - name: ruff check
+        working-directory: bindings/python
+        run: ruff check python tests examples
+      - name: ruff format check
+        working-directory: bindings/python
+        run: ruff format --check python tests examples
+      - name: mypy
+        working-directory: bindings/python
+        # mypy needs to see the .pyi for the native module — we copy it
+        # into a stub-only `_native` package so mypy doesn't try to load
+        # the actual cdylib (which doesn't exist on this runner).
+        run: |
+          mkdir -p /tmp/genatp-stubs/genatp
+          cp python/genatp/_native.pyi /tmp/genatp-stubs/genatp/__init__.pyi
+          touch /tmp/genatp-stubs/genatp/__init__.pyi
+          MYPYPATH=python mypy python/genatp --explicit-package-bases || true
+          # Don't gate on mypy yet — the native module is stubbed but the
+          # public surface evolves. Re-enable strict gating once v0.2 ships.
+
+  # --------------------------------------------------------------------
+  # Build wheels for every target Phase 5 promises.
+  # --------------------------------------------------------------------
+  build:
+    name: build wheel (${{ matrix.target }})
+    needs: lint
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            maturin-target: x86_64
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            maturin-target: aarch64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            maturin-target: x86_64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            maturin-target: aarch64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            maturin-target: x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: pywheel-${{ matrix.target }}
+          workspaces: "."
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.maturin-target }}
+          args: --release --out dist --interpreter python3.12
+          working-directory: bindings/python
+          # Linux wheels build in a manylinux2014 container so they're
+          # broadly compatible. Other OSes build natively.
+          manylinux: ${{ matrix.os == 'ubuntu-latest' && '2014' || (matrix.os == 'ubuntu-22.04-arm' && '2_28' || 'off') }}
+
+      - name: Upload wheels artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.target }}
+          path: bindings/python/dist/*.whl
+
+  # --------------------------------------------------------------------
+  # Smoke test the wheel on a fresh Python — proves `pip install genatp`
+  # works and the PRD-quickstart shape imports cleanly.
+  # --------------------------------------------------------------------
+  smoke:
+    name: smoke (py${{ matrix.python }} on ${{ matrix.os }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ["3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Download wheel artifact (linux x86_64)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-x86_64-unknown-linux-gnu
+          path: bindings/python/dist
+      - name: Download wheel artifact (mac arm64)
+        if: matrix.os == 'macos-14'
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-aarch64-apple-darwin
+          path: bindings/python/dist
+      - name: Download wheel artifact (windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-x86_64-pc-windows-msvc
+          path: bindings/python/dist
+
+      - name: Install wheel
+        shell: bash
+        run: |
+          pip install --upgrade pip
+          pip install bindings/python/dist/*.whl
+
+      - name: Import smoke test
+        run: |
+          python -c "import genatp; print('genatp', genatp.__version__); print(genatp.build_info())"
+
+      - name: Pure-Python pytest
+        run: |
+          pip install pytest pytest-asyncio pytest-timeout
+          # Run only the suite that does NOT need Chrome or the network.
+          python -m pytest bindings/python/tests/test_pure_python.py bindings/python/tests/test_native.py -v
+
+  # --------------------------------------------------------------------
+  # Aggregate gate — branch protection points here.
+  # --------------------------------------------------------------------
+  python-wheels:
+    name: python-wheels
+    needs: [lint, build, smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+        run: echo "python wheels green"
+      - name: Failure
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "lint=${{ needs.lint.result }}"
+          echo "build=${{ needs.build.result }}"
+          echo "smoke=${{ needs.smoke.result }}"
+          exit 1

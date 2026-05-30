@@ -55,11 +55,37 @@ Plus the modern essentials: token-optimized snapshots, encrypted auth vault, aut
 
 ---
 
-## Quickstart (v0.1.0 — MCP server)
+## Quickstart (Python SDK — v0.2.0)
 
-The first public release ships the **MCP server** so any MCP-compatible
-LLM client can drive a browser. Python and TypeScript SDKs land in
-v0.2.0 (Phase 5).
+```bash
+pip install genatp
+```
+
+```python
+from genatp import Agent
+
+agent = Agent(model="claude-3-5-sonnet-latest")
+result = agent.run("Find the cheapest direct flight from SFO to JFK next Friday.")
+print(result.summary)
+```
+
+Configure a provider via env vars ([`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)) or pass
+`Agent(provider="ollama")`. For a no-API-key smoke test:
+
+```bash
+GENATP_LLM_PROVIDER=mock python examples/quickstart.py
+```
+
+Async API: `await agent.arun(...)`. LangChain: `from genatp.langchain import as_langchain_tools`.
+Full Python docs: [`bindings/python/README.md`](./bindings/python/README.md) and
+[`docs/python/`](./docs/python/).
+
+---
+
+## Quickstart (MCP server — v0.1.0)
+
+The MCP server lets any MCP-compatible LLM client drive a browser without
+writing Python.
 
 ### 1. Build
 
@@ -246,6 +272,8 @@ Full system, container, component, and deployment diagrams in [`docs/ARCHITECTUR
 | [`docs/USER_FLOWS.md`](./docs/USER_FLOWS.md) | End-to-end journeys for each persona, with sequence diagrams |
 | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) | Provider selection (Ollama / Anthropic / OpenAI / NVIDIA NIM), env vars, `.env` |
 | [`docs/MCP.md`](./docs/MCP.md) | MCP server setup for Claude Desktop, Cursor, MCP Inspector |
+| [`docs/python/`](./docs/python/) | Python SDK reference (`pip install genatp`) |
+| [`bindings/python/README.md`](./bindings/python/README.md) | Python SDK install, async, LangChain, providers |
 
 ---
 

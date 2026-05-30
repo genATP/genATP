@@ -1,6 +1,6 @@
 [package]
 name = "genatp-python"
-description = "Python SDK bindings (PyO3 + maturin). Phase 5 implementation. Phase 0 stub."
+description = "Python SDK bindings for genATP via PyO3 + maturin. Phase 5 (v0.2.0)."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -11,12 +11,36 @@ homepage.workspace = true
 publish.workspace = true
 
 [lib]
-# Phase 0: plain rlib so it builds without Python headers in CI.
-# Phase 5 replaces this with `crate-type = ["cdylib"]` and adds the pyo3 dep.
+# `cdylib` only — maturin loads this as `genatp._native`. Do not add `rlib`:
+# `cargo test` would try to link libpython and fail. Python tests live in
+# `bindings/python/tests/` (pytest); workspace `cargo test` excludes this crate.
 name = "genatp_python"
 path = "src/lib.rs"
+crate-type = ["cdylib"]
 
 [lints]
 workspace = true
 
+[features]
+# Default builds the extension module — PyO3's `extension-module` feature
+# skips linking to libpython, so `cargo build --workspace` works without a
+# Python interpreter installed on the build host.
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+
 [dependencies]
+# Stable ABI3 against Python 3.10 → one wheel per OS/arch covers 3.10, 3.11,
+# 3.12, 3.13+ without per-version rebuilds. 0.28+ supports the Rust 2024
+# edition cleanly (no `unsafe_op_in_unsafe_fn` warnings).
+pyo3 = { version = "0.28", features = ["abi3-py310"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+
+genatp-core = { path = "../../crates/genatp-core" }
+genatp-llm = { path = "../../crates/genatp-llm" }
+genatp-browser = { path = "../../crates/genatp-browser" }
+genatp-perception = { path = "../../crates/genatp-perception" }
+genatp-mcp = { path = "../../crates/genatp-mcp" }
