@@ -148,19 +148,19 @@ jobs:
 
       - name: Download wheel artifact (linux x86_64)
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: wheels-x86_64-unknown-linux-gnu
           path: bindings/python/dist
       - name: Download wheel artifact (mac arm64)
         if: matrix.os == 'macos-14'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: wheels-aarch64-apple-darwin
           path: bindings/python/dist
       - name: Download wheel artifact (windows)
         if: matrix.os == 'windows-latest'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: wheels-x86_64-pc-windows-msvc
           path: bindings/python/dist
