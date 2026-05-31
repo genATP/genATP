@@ -5,7 +5,9 @@
 //! context. We keep the API small and side-effect free here so it's easy
 //! to test independently of crypto.
 
-use chromiumoxide::cdp::browser_protocol::network::{CookieParam, CookieSameSite};
+use chromiumoxide::cdp::browser_protocol::network::{
+    CookieParam, CookieSameSite, GetCookiesParams,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::cdp::Page;
@@ -99,6 +101,72 @@ pub async fn set_local_storage(page: &Page, key: &str, value: &str) -> Result<()
     let script = format!("localStorage.setItem({escaped_key}, {escaped_value});");
     page.raw().evaluate(script).await?;
     Ok(())
+}
+
+/// Dump all cookies visible to `page`. Optionally filtered to those
+/// matching the supplied `urls` (CDP semantics: a cookie is included
+/// if any URL falls within its domain/path scope). Pass an empty
+/// slice to fetch every cookie known to the browser context.
+///
+/// # Errors
+/// Surfaces any CDP failure verbatim.
+pub async fn dump_cookies(page: &Page, urls: &[&str]) -> Result<Vec<Cookie>> {
+    let mut params = GetCookiesParams::default();
+    if !urls.is_empty() {
+        params.urls = Some(urls.iter().map(|s| (*s).to_string()).collect());
+    }
+    let resp = page.raw().execute(params).await?;
+    let cookies = resp
+        .result
+        .cookies
+        .iter()
+        .map(|c| Cookie {
+            name: c.name.clone(),
+            value: c.value.clone(),
+            domain: Some(c.domain.clone()).filter(|s| !s.is_empty()),
+            path: Some(c.path.clone()).filter(|s| !s.is_empty()),
+            secure: c.secure,
+            http_only: c.http_only,
+            same_site: c.same_site.as_ref().map(|s| match s {
+                CookieSameSite::Strict => "Strict".to_string(),
+                CookieSameSite::Lax => "Lax".to_string(),
+                CookieSameSite::None => "None".to_string(),
+            }),
+            url: None,
+        })
+        .collect();
+    Ok(cookies)
+}
+
+/// Dump every `localStorage` key/value pair currently visible to
+/// `page`. The page must already have a same-origin document loaded
+/// (about:blank yields an empty result).
+///
+/// # Errors
+/// Returns the underlying CDP error if `Runtime.evaluate` fails or if
+/// the result is unexpectedly shaped.
+pub async fn dump_local_storage(page: &Page) -> Result<Vec<(String, String)>> {
+    // Mirror behaviour of `Object.fromEntries` over `localStorage`,
+    // returned as JSON. Using `JSON.stringify` keeps the value pure
+    // string regardless of how the page wrote it.
+    let script = r#"
+        (() => {
+          const out = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            out[k] = localStorage.getItem(k);
+          }
+          return JSON.stringify(out);
+        })()
+    "#;
+    let result = page.raw().evaluate(script).await?;
+    let json: String = match result.into_value::<String>() {
+        Ok(s) => s,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let map: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(&json).unwrap_or_default();
+    Ok(map.into_iter().collect())
 }
 
 /// Read a single localStorage value, returning `None` if the key is absent.

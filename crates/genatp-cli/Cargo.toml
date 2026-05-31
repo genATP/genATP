@@ -31,3 +31,5 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 genatp-mcp = { path = "../genatp-mcp" }
 genatp-browser = { path = "../genatp-browser" }
+genatp-vault = { path = "../genatp-vault" }
+chrono = { workspace = true }

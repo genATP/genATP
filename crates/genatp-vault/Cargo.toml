@@ -1,6 +1,6 @@
 [package]
 name = "genatp-vault"
-description = "Encrypted per-domain auth store (AES-256-GCM, ed25519, OS keychain integration). Phase 6 implementation."
+description = "Encrypted per-domain auth store (AES-256-GCM, HKDF-SHA256, OS keychain integration). Phase 6."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -14,3 +14,34 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+url = { workspace = true }
+rusqlite = { workspace = true }
+blake3 = { workspace = true }
+aes-gcm = { workspace = true }
+hkdf = { workspace = true }
+sha2 = { workspace = true }
+argon2 = { workspace = true }
+zeroize = { workspace = true }
+secrecy = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+keyring = { workspace = true }
+directories = { workspace = true }
+genatp-browser = { path = "../genatp-browser" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+criterion = { workspace = true }
+tokio = { workspace = true }
+rusqlite = { workspace = true }
+
+[[bench]]
+name = "vault_unlock"
+harness = false

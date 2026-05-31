@@ -49,6 +49,25 @@ pub enum Command {
     Version,
     /// Start an MCP server (stdio or HTTP transport).
     Serve(ServeArgs),
+    /// Manage the encrypted auth vault (cookies + localStorage).
+    Vault {
+        #[command(subcommand)]
+        action: VaultAction,
+    },
+}
+
+/// Subcommands under `genatp vault`.
+#[derive(Debug, Subcommand)]
+pub enum VaultAction {
+    /// List every domain stored in the vault, with entry counts.
+    List,
+    /// Revoke (delete) every entry under the given domain.
+    Revoke {
+        /// Bare domain (e.g. `github.com`).
+        domain: String,
+    },
+    /// Print the on-disk vault path that would be used.
+    Path,
 }
 
 /// Arguments for `genatp serve`.
@@ -121,6 +140,13 @@ pub fn run() -> i32 {
                 1
             }
         },
+        Some(Command::Vault { action }) => match run_vault(action) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: vault failed: {e:#}");
+                1
+            }
+        },
     }
 }
 
@@ -133,6 +159,7 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
             headless: !args.headed,
             user_data_dir: args.user_data_dir.clone(),
             pool_capacity: 1,
+            ..genatp_mcp::SessionConfig::default()
         };
         let session = genatp_mcp::McpSession::new(session_cfg).await?;
         let server = genatp_mcp::McpServer::new(session);
@@ -147,6 +174,56 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
         }
         Ok::<(), anyhow::Error>(())
     })
+}
+
+fn run_vault(action: VaultAction) -> anyhow::Result<()> {
+    use std::sync::Arc;
+
+    use genatp_vault::{OsKeyStore, Vault, default_vault_path};
+
+    let path = default_vault_path()?;
+    match action {
+        VaultAction::Path => {
+            println!("{}", path.display());
+            Ok(())
+        }
+        VaultAction::List => {
+            let ks: Arc<dyn genatp_vault::KeyStore> = Arc::new(OsKeyStore::new());
+            // Don't auto-init for `list` — if nothing's there, say so.
+            let v = match Vault::open(&path, ks) {
+                Ok(v) => v,
+                Err(genatp_vault::VaultError::NotInitialized) => {
+                    println!("vault not initialised yet — log in via an agent first");
+                    return Ok(());
+                }
+                Err(e) => return Err(e.into()),
+            };
+            let rows = v.list()?;
+            if rows.is_empty() {
+                println!("vault is empty");
+            } else {
+                println!("{:<40} {:>6}  updated", "domain", "count");
+                for r in rows {
+                    let ts = chrono::DateTime::from_timestamp_millis(r.updated_at_ms)
+                        .map(|d| d.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                        .unwrap_or_default();
+                    println!("{:<40} {:>6}  {ts}", r.domain, r.entry_count);
+                }
+            }
+            Ok(())
+        }
+        VaultAction::Revoke { domain } => {
+            let ks: Arc<dyn genatp_vault::KeyStore> = Arc::new(OsKeyStore::new());
+            let mut v = Vault::open(&path, ks)?;
+            let n = v.revoke(&domain)?;
+            if n == 0 {
+                println!("no entries for `{domain}` (already revoked or never stored)");
+            } else {
+                println!("revoked all entries for `{domain}`");
+            }
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]

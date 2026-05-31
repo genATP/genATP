@@ -105,7 +105,7 @@ async fn http_transport_serves_initialize_and_tools_call() {
         }),
     )
     .await;
-    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 9);
+    assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 12);
 
     let nav = rpc_post(
         &client,

@@ -6,7 +6,7 @@
 *Generative Agent Test Protocol — one install, any agent, any LLM, 10× fewer tokens.*
 
 [![License: Personal Use](https://img.shields.io/badge/license-Personal%20Use-orange.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.1.0-blue.svg)](#roadmap)
+[![Status](https://img.shields.io/badge/status-v0.3.0-blue.svg)](#roadmap)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blue.svg)](#contributing)
 
 [Quickstart](#quickstart) · [Why genATP](#why-genatp) · [Docs](./docs) · [Roadmap](#roadmap)
@@ -82,7 +82,7 @@ Full Python docs: [`bindings/python/README.md`](./bindings/python/README.md) and
 
 ---
 
-## Quickstart (MCP server — v0.1.0)
+## Quickstart (MCP server + Auth Vault — v0.3.0)
 
 The MCP server lets any MCP-compatible LLM client drive a browser without
 writing Python.
@@ -94,7 +94,7 @@ git clone https://github.com/genatp/genatp && cd genatp
 cargo build --release -p genatp-cli
 cargo install --path crates/genatp-cli
 genatp version
-# genatp 0.1.0
+# genatp 0.3.0
 ```
 
 ### 2. Wire it into Claude Desktop
@@ -124,6 +124,21 @@ Claude calls genATP's `navigate` → `snapshot` → `extract` tools and
 returns the answer. Full tool reference: [docs/MCP.md](./docs/MCP.md).
 
 Cursor and the MCP Inspector are wired the same way — see the docs.
+
+### 4. Auth Vault — log in once, ever
+
+```bash
+# After the agent finishes an interactive login flow:
+#   tools/call save_auth { "domain": "github.com" }
+#
+# Inspect / manage from the CLI:
+genatp vault list
+genatp vault revoke github.com
+```
+
+Cookies + `localStorage` are sealed under AES-256-GCM with a master
+key kept in your OS keychain. Full design and threat model:
+[docs/VAULT.md](./docs/VAULT.md).
 
 ---
 

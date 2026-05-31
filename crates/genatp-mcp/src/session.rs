@@ -20,14 +20,18 @@ use tokio::sync::Mutex;
 
 use genatp_browser::launch::HeadlessMode;
 use genatp_browser::pool::{BrowserPool, PageGuard, PoolConfig};
+use genatp_browser::storage::{
+    Cookie, dump_cookies, dump_local_storage, set_cookies, set_local_storage,
+};
 use genatp_browser::{AccessibilityTree, LaunchOptions};
 use genatp_core::perception_bridge::raw_tree_from_accessibility;
 use genatp_perception::{CompressOptions, Ref, RefMap, StripPolicy, compress, strip};
+use genatp_vault::{Capability, Entry, KeyStore, OsKeyStore, Vault};
 
 use crate::error::{McpError, Result};
 
 /// Configuration for spawning the browser bound to this session.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SessionConfig {
     /// Headless mode toggle. Defaults to `true` so the server can run
     /// in CI / Docker without a display server.
@@ -38,6 +42,32 @@ pub struct SessionConfig {
     pub user_data_dir: Option<PathBuf>,
     /// Maximum concurrent pages (v0.1.0 only allocates one).
     pub pool_capacity: usize,
+    /// Vault file path. `None` falls back to the per-user default
+    /// (`directories::ProjectDirs`) at first auth-tool use.
+    pub vault_path: Option<PathBuf>,
+    /// Auth Vault keystore. `None` ⇒ OS keychain (production default).
+    /// Tests override with [`genatp_vault::InMemoryKeyStore`].
+    pub vault_keystore: Option<Arc<dyn KeyStore>>,
+    /// Capability granted to vault tools. Defaults to `Capability::any()`
+    /// (interactive use). The CLI `serve` subcommand can constrain
+    /// this to only the domains a cassette declared.
+    pub vault_capability: Capability,
+}
+
+impl std::fmt::Debug for SessionConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionConfig")
+            .field("headless", &self.headless)
+            .field("user_data_dir", &self.user_data_dir)
+            .field("pool_capacity", &self.pool_capacity)
+            .field("vault_path", &self.vault_path)
+            .field("vault_keystore", &self.vault_keystore.is_some())
+            .field(
+                "vault_capability_scoped",
+                &self.vault_capability.domains().is_some(),
+            )
+            .finish()
+    }
 }
 
 impl Default for SessionConfig {
@@ -46,6 +76,9 @@ impl Default for SessionConfig {
             headless: true,
             user_data_dir: None,
             pool_capacity: 1,
+            vault_path: None,
+            vault_keystore: None,
+            vault_capability: Capability::any(),
         }
     }
 }
@@ -81,6 +114,15 @@ struct SessionInner {
     last_snapshot_json: Option<String>,
     /// Most recent accessibility tree (used for `extract`).
     last_tree: Option<AccessibilityTree>,
+    /// Lazy-opened auth vault. Held across tool calls so the keychain
+    /// prompt fires at most once per session.
+    vault: Option<Vault>,
+    /// Where to open the vault on first use.
+    vault_path: Option<PathBuf>,
+    /// Keystore custodian for the master KEK. `None` ⇒ OS keychain.
+    vault_keystore: Option<Arc<dyn KeyStore>>,
+    /// Capability gate for `save_auth` / `load_auth`.
+    vault_capability: Capability,
 }
 
 impl McpSession {
@@ -114,6 +156,10 @@ impl McpSession {
                 ref_to_backend: HashMap::new(),
                 last_snapshot_json: None,
                 last_tree: None,
+                vault: None,
+                vault_path: cfg.vault_path,
+                vault_keystore: cfg.vault_keystore,
+                vault_capability: cfg.vault_capability,
             })),
         })
     }
@@ -325,4 +371,166 @@ impl McpSession {
     pub async fn last_snapshot_json(&self) -> Option<String> {
         self.inner.lock().await.last_snapshot_json.clone()
     }
+
+    // --- Auth Vault (Phase 6) -----------------------------------
+
+    /// Lazily open the bound auth vault. Caller must hold the inner
+    /// mutex.
+    fn ensure_vault(inner: &mut SessionInner) -> Result<&mut Vault> {
+        if inner.vault.is_none() {
+            let path = match inner.vault_path.clone() {
+                Some(p) => p,
+                None => genatp_vault::default_vault_path()
+                    .map_err(|e| McpError::Internal(format!("vault path: {e}")))?,
+            };
+            let ks: Arc<dyn KeyStore> = inner
+                .vault_keystore
+                .clone()
+                .unwrap_or_else(|| Arc::new(OsKeyStore::new()));
+            let vault = Vault::open_or_init(&path, ks)
+                .map_err(|e| McpError::Internal(format!("vault open: {e}")))?;
+            inner.vault = Some(vault);
+        }
+        Ok(inner
+            .vault
+            .as_mut()
+            .expect("vault was just initialized above"))
+    }
+
+    /// Save the current page's cookies + `localStorage` for `domain`
+    /// into the auth vault.
+    ///
+    /// # Errors
+    /// Returns [`McpError::ToolFailed`] for capability denials and
+    /// [`McpError::Internal`] for vault failures.
+    pub async fn save_auth(&self, domain: &str) -> Result<usize> {
+        let mut inner = self.inner.lock().await;
+        Self::ensure_page(&mut inner).await?;
+        let page = inner.page.as_ref().expect("page acquired").page();
+
+        let cookies = dump_cookies(page, &[]).await?;
+        let local = dump_local_storage(page).await?;
+
+        let mut entries: Vec<Entry> = Vec::new();
+        for c in cookies {
+            // Filter to the requested domain only (CDP returns every
+            // cookie known to the context — we want session isolation).
+            if !cookie_matches_domain(&c, domain) {
+                continue;
+            }
+            if let Ok(e) = Entry::cookie(domain, c) {
+                entries.push(e);
+            }
+        }
+        for (k, v) in local {
+            if let Ok(e) = Entry::local_storage(domain, k, v) {
+                entries.push(e);
+            }
+        }
+        if entries.is_empty() {
+            return Ok(0);
+        }
+        let count = entries.len();
+        let cap = inner.vault_capability.clone();
+        let vault = Self::ensure_vault(&mut inner)?;
+        vault.save(&cap, &entries).map_err(|e| match e {
+            genatp_vault::VaultError::CapabilityDenied(d) => {
+                McpError::ToolFailed(format!("capability denied for `{d}`"))
+            }
+            other => McpError::Internal(format!("vault save: {other}")),
+        })?;
+        Ok(count)
+    }
+
+    /// Hydrate the current page with cookies + `localStorage` stored
+    /// under `domain` in the vault. The page should already have
+    /// navigated to a same-origin URL so Chrome accepts the cookies.
+    ///
+    /// Returns the number of entries restored.
+    ///
+    /// # Errors
+    /// As for [`Self::save_auth`].
+    pub async fn load_auth(&self, domain: &str) -> Result<usize> {
+        let mut inner = self.inner.lock().await;
+        Self::ensure_page(&mut inner).await?;
+        let cap = inner.vault_capability.clone();
+        let vault = Self::ensure_vault(&mut inner)?;
+        let entries = vault.load(&cap, domain).map_err(|e| match e {
+            genatp_vault::VaultError::CapabilityDenied(d) => {
+                McpError::ToolFailed(format!("capability denied for `{d}`"))
+            }
+            other => McpError::Internal(format!("vault load: {other}")),
+        })?;
+        let count = entries.len();
+        if count == 0 {
+            return Ok(0);
+        }
+
+        let page = inner.page.as_ref().expect("page acquired").page();
+        let mut cookies: Vec<Cookie> = Vec::new();
+        for e in entries {
+            match e {
+                Entry::Cookie { cookie, .. } => cookies.push(cookie),
+                Entry::LocalStorage { key, value, .. } => {
+                    set_local_storage(page, &key, &value).await?;
+                }
+            }
+        }
+        if !cookies.is_empty() {
+            set_cookies(page, cookies).await?;
+        }
+        Ok(count)
+    }
+
+    /// Enumerate every domain stored in the vault.
+    ///
+    /// # Errors
+    /// Returns [`McpError::Internal`] on vault failures.
+    pub async fn list_auth(&self) -> Result<Vec<(String, usize)>> {
+        let mut inner = self.inner.lock().await;
+        let vault = Self::ensure_vault(&mut inner)?;
+        let summary = vault
+            .list()
+            .map_err(|e| McpError::Internal(format!("vault list: {e}")))?;
+        Ok(summary
+            .into_iter()
+            .map(|s| (s.domain, s.entry_count))
+            .collect())
+    }
+
+    /// Revoke (drop) every entry under `domain`. Returns the rows
+    /// removed (always 0 or 1 because we keep one row per domain).
+    ///
+    /// # Errors
+    /// As for [`Self::list_auth`].
+    pub async fn revoke_auth(&self, domain: &str) -> Result<usize> {
+        let mut inner = self.inner.lock().await;
+        let vault = Self::ensure_vault(&mut inner)?;
+        vault
+            .revoke(domain)
+            .map_err(|e| McpError::Internal(format!("vault revoke: {e}")))
+    }
+}
+
+/// `true` if `cookie.domain` matches `target` after canonicalisation.
+/// CDP returns cookie domains with or without a leading dot —
+/// `genatp_vault::canonical_domain` normalises both forms.
+fn cookie_matches_domain(cookie: &Cookie, target: &str) -> bool {
+    let target = match genatp_vault::canonical_domain(target) {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+    let Some(cd) = cookie.domain.as_deref() else {
+        // Cookies set via `url=...` have no explicit domain. We
+        // optimistically include them — the caller will navigate to a
+        // same-origin URL before save_auth fires.
+        return true;
+    };
+    let Ok(cd_canon) = genatp_vault::canonical_domain(cd) else {
+        return false;
+    };
+    // Allow exact match or any sub-domain of `target`.
+    cd_canon == target
+        || cd_canon.ends_with(&format!(".{target}"))
+        || target.ends_with(&format!(".{cd_canon}"))
 }

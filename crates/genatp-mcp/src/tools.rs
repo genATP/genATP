@@ -144,6 +144,46 @@ pub fn descriptors() -> Vec<ToolDescriptor> {
                 "properties": {}
             }),
         },
+        // ----- Phase 6 / v0.3.0 — Auth Vault tools --------------------
+        ToolDescriptor {
+            name: "save_auth".into(),
+            description: "Save the current page's cookies + localStorage for the given domain into the encrypted auth vault. Run this AFTER a successful login so subsequent sessions can skip it via `load_auth`.".into(),
+            input_schema: json!({
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["domain"],
+                "properties": {
+                    "domain": {
+                        "type": "string",
+                        "description": "Bare domain like `github.com`. Don't include the scheme."
+                    }
+                }
+            }),
+        },
+        ToolDescriptor {
+            name: "load_auth".into(),
+            description: "Hydrate the current page with cookies + localStorage stored in the auth vault for `domain`. Call AFTER navigating to a same-origin URL. Returns 0 if no entries exist for that domain (you'll need to log in interactively, then call `save_auth`).".into(),
+            input_schema: json!({
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["domain"],
+                "properties": {
+                    "domain": {
+                        "type": "string",
+                        "description": "Bare domain like `github.com`."
+                    }
+                }
+            }),
+        },
+        ToolDescriptor {
+            name: "list_auth".into(),
+            description: "List every domain stored in the auth vault, with the number of entries each one holds. Reveals only domains the active capability allows.".into(),
+            input_schema: json!({
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {}
+            }),
+        },
     ]
 }
 
@@ -179,6 +219,11 @@ struct ScrollArgs {
 struct ExtractArgs {
     #[serde(default)]
     query: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DomainArgs {
+    domain: String,
 }
 
 fn parse_args<T: for<'de> Deserialize<'de>>(args: &Value, tool: &str) -> Result<T> {
@@ -293,6 +338,47 @@ pub async fn dispatch(
             Err(McpError::Browser(e)) => Ok(text_err(format!("go_back failed: {e}"))),
             Err(e) => Err(e),
         },
+        "save_auth" => {
+            let a: DomainArgs = parse_args(arguments, name)?;
+            match session.save_auth(&a.domain).await {
+                Ok(n) => Ok(text_ok(format!("saved {n} auth entries for {}", a.domain))),
+                Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
+                Err(McpError::Browser(e)) => Ok(text_err(format!("save_auth failed: {e}"))),
+                Err(e) => Err(e),
+            }
+        }
+        "load_auth" => {
+            let a: DomainArgs = parse_args(arguments, name)?;
+            match session.load_auth(&a.domain).await {
+                Ok(0) => Ok(text_ok(format!(
+                    "no auth entries stored for {} — log in interactively then call save_auth",
+                    a.domain
+                ))),
+                Ok(n) => Ok(text_ok(format!(
+                    "hydrated {n} auth entries for {}",
+                    a.domain
+                ))),
+                Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
+                Err(McpError::Browser(e)) => Ok(text_err(format!("load_auth failed: {e}"))),
+                Err(e) => Err(e),
+            }
+        }
+        "list_auth" => match session.list_auth().await {
+            Ok(rows) => {
+                if rows.is_empty() {
+                    Ok(text_ok("vault is empty"))
+                } else {
+                    let mut out = String::new();
+                    for (d, n) in rows {
+                        use std::fmt::Write as _;
+                        let _ = writeln!(out, "{d}\t{n} entries");
+                    }
+                    Ok(text_ok(out))
+                }
+            }
+            Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
+            Err(e) => Err(e),
+        },
         other => Err(McpError::UnknownTool(other.into())),
     }
 }
@@ -302,9 +388,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn descriptors_emit_nine_stable_tools() {
+    fn descriptors_emit_twelve_stable_tools() {
         let d = descriptors();
-        assert_eq!(d.len(), 9);
+        assert_eq!(d.len(), 12);
         let names: Vec<&str> = d.iter().map(|t| t.name.as_str()).collect();
         assert_eq!(
             names,
@@ -318,8 +404,27 @@ mod tests {
                 "screenshot",
                 "get_url",
                 "go_back",
+                "save_auth",
+                "load_auth",
+                "list_auth",
             ]
         );
+    }
+
+    #[test]
+    fn auth_tools_require_domain() {
+        for name in ["save_auth", "load_auth"] {
+            let t = descriptors()
+                .into_iter()
+                .find(|t| t.name == name)
+                .expect("auth tool present");
+            let required = t
+                .input_schema
+                .get("required")
+                .and_then(Value::as_array)
+                .expect("required array");
+            assert!(required.iter().any(|v| v == "domain"));
+        }
     }
 
     #[test]

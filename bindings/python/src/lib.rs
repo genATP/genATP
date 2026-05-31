@@ -154,6 +154,7 @@ impl NativeBrowserSession {
             headless,
             user_data_dir: user_data_dir.map(std::path::PathBuf::from),
             pool_capacity: 1,
+            ..SessionConfig::default()
         };
         let session = runtime.block_on(McpSession::new(cfg)).map_err(to_pyerr)?;
         Ok(Self {

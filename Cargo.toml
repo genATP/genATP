@@ -34,7 +34,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.3.0"
 authors = ["genATP contributors"]
 edition = "2024"
 rust-version = "1.95"
@@ -87,6 +87,23 @@ chrono = { version = "0.4", default-features = false, features = [
 # Phase 4 — MCP server v0.1
 clap = { version = "4", features = ["derive", "env"] }
 base64 = "0.22"
+# Phase 6 — Auth Vault
+# Crypto stack pinned to RustCrypto's audited family. We do NOT mix in
+# `ring` here on purpose — fewer audit surfaces, all pure-Rust, plays
+# nicely with `forbid(unsafe_code)`.
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+argon2 = "0.5"
+zeroize = { version = "1", features = ["derive"] }
+secrecy = "0.10"
+rand = "0.8"
+keyring = { version = "3", default-features = false, features = [
+  "apple-native",
+  "windows-native",
+  "linux-native",
+] }
+directories = "5"
 # dev-only — fixture HTTP server + benchmarks + property/snapshot tests
 axum = "0.8"
 tower-http = { version = "0.6", features = ["trace", "cors"] }

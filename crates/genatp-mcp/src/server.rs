@@ -275,14 +275,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tools_list_returns_nine_tools() {
+    async fn tools_list_returns_twelve_tools() {
         let Some(server) = fake_server().await else {
             return;
         };
         let raw = request(1, "tools/list", json!({}));
         let resp = server.handle_bytes(&raw).await.unwrap();
         let v: Value = serde_json::from_str(&resp).unwrap();
-        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 9);
+        assert_eq!(v["result"]["tools"].as_array().unwrap().len(), 12);
     }
 
     #[tokio::test]
