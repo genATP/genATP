@@ -113,17 +113,44 @@ Reference numbers (Windows 11 dev laptop, NVMe SSD):
 vault_open_warm         time:   [2.0 ms 2.1 ms 2.2 ms]
 ```
 
-## 7. MCP-level smoke test
+## 7. MCP-level smoke test (HTTP, no MCP client)
 
-Spin up the stdio server, hit the new tools manually:
+Use this on Windows when you do not have Claude Desktop / Cursor wired
+up. **Headed Chrome only appears after `navigate`.**
+
+**Terminal A** — start server (rebuild after vault changes):
 
 ```powershell
-cargo run --release --bin genatp -- serve --stdio
+cargo build --release -p genatp-cli
+cargo run --release --bin genatp -- serve --port 3000 --headed
 ```
 
-In another shell, send a JSON-RPC `initialize` then a `tools/list`
-and confirm the response includes `save_auth`, `load_auth`,
-`list_auth`. The MCP integration tests cover the full round-trip:
+**Terminal B** — optional: load `.env` (genATP does not auto-read it):
+
+```powershell
+# One-liner to load .env into this PowerShell session:
+Get-Content .env | ForEach-Object {
+  if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+    Set-Item -Path "env:$($matches[1])" -Value $matches[2].Trim().Trim('"')
+  }
+}
+# Or use the script flag: .\scripts\test-auth-vault-http.ps1 -LoadEnv
+```
+
+**Automated HTTP script** (login manually when prompted):
+
+```powershell
+.\scripts\test-auth-vault-http.ps1 -LoadEnv
+# After login + save, restart Terminal A, then:
+.\scripts\test-auth-vault-http.ps1 -LoadOnly -LoadEnv
+```
+
+**Manual JSON-RPC** — same as the script; see
+`scripts/test-auth-vault-http.ps1` for the exact `Invoke-RestMethod`
+bodies.
+
+Confirm tools: `save_auth`, `load_auth`, `list_auth` in `tools/list`.
+Integration tests:
 
 ```bash
 cargo test -p genatp-mcp --tests

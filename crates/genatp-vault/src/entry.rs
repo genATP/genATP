@@ -13,6 +13,8 @@ use genatp_browser::storage::Cookie;
 pub const KIND_COOKIE: &str = "cookie";
 /// Discriminator for `localStorage` entries.
 pub const KIND_LOCAL_STORAGE: &str = "local_storage";
+/// Discriminator for `sessionStorage` entries.
+pub const KIND_SESSION_STORAGE: &str = "session_storage";
 
 /// One vault entry — either a cookie or a `localStorage` pair.
 ///
@@ -37,6 +39,17 @@ pub enum Entry {
         /// `localStorage` key.
         key: String,
         /// `localStorage` value (UTF-8).
+        value: String,
+    },
+    /// One `sessionStorage` key/value pair. Per-tab in the browser
+    /// natively; rehydrating it post-restart restores SPAs that keep
+    /// auth tokens there.
+    SessionStorage {
+        /// Canonicalized domain.
+        domain: String,
+        /// `sessionStorage` key.
+        key: String,
+        /// `sessionStorage` value (UTF-8).
         value: String,
     },
 }
@@ -71,11 +84,30 @@ impl Entry {
         })
     }
 
+    /// Construct a `sessionStorage` entry. `domain` is canonicalized.
+    ///
+    /// # Errors
+    /// Returns [`crate::error::VaultError::InvalidDomain`] if the
+    /// domain fails canonicalization.
+    pub fn session_storage(
+        domain: &str,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> crate::error::Result<Self> {
+        Ok(Self::SessionStorage {
+            domain: canonical_domain(domain)?,
+            key: key.into(),
+            value: value.into(),
+        })
+    }
+
     /// Canonical domain owned by this entry.
     #[must_use]
     pub fn domain(&self) -> &str {
         match self {
-            Self::Cookie { domain, .. } | Self::LocalStorage { domain, .. } => domain,
+            Self::Cookie { domain, .. }
+            | Self::LocalStorage { domain, .. }
+            | Self::SessionStorage { domain, .. } => domain,
         }
     }
 
@@ -85,6 +117,7 @@ impl Entry {
         match self {
             Self::Cookie { .. } => KIND_COOKIE,
             Self::LocalStorage { .. } => KIND_LOCAL_STORAGE,
+            Self::SessionStorage { .. } => KIND_SESSION_STORAGE,
         }
     }
 
@@ -96,7 +129,7 @@ impl Entry {
             Self::Cookie { cookie, .. } => {
                 format!("{}|{}", cookie.name, cookie.path.as_deref().unwrap_or("/"))
             }
-            Self::LocalStorage { key, .. } => key.clone(),
+            Self::LocalStorage { key, .. } | Self::SessionStorage { key, .. } => key.clone(),
         }
     }
 }

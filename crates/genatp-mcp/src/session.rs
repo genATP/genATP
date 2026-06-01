@@ -21,7 +21,8 @@ use tokio::sync::Mutex;
 use genatp_browser::launch::HeadlessMode;
 use genatp_browser::pool::{BrowserPool, PageGuard, PoolConfig};
 use genatp_browser::storage::{
-    Cookie, dump_cookies, dump_local_storage, set_cookies, set_local_storage,
+    Cookie, dump_cookies, dump_local_storage, dump_session_storage, set_cookies, set_local_storage,
+    set_session_storage,
 };
 use genatp_browser::{AccessibilityTree, LaunchOptions};
 use genatp_core::perception_bridge::raw_tree_from_accessibility;
@@ -29,6 +30,51 @@ use genatp_perception::{CompressOptions, Ref, RefMap, StripPolicy, compress, str
 use genatp_vault::{Capability, Entry, KeyStore, OsKeyStore, Vault};
 
 use crate::error::{McpError, Result};
+
+/// Result of [`McpSession::save_auth`]: counts plus the cookie names
+/// captured (no values) so the tool layer can surface a useful summary
+/// to the LLM. The skipped list helps debug domain-filter mismatches.
+#[derive(Debug, Default, Clone)]
+pub struct SaveAuthSummary {
+    /// Cookies kept after domain filtering.
+    pub cookies: usize,
+    /// `localStorage` entries kept.
+    pub local_storage: usize,
+    /// `sessionStorage` entries kept.
+    pub session_storage: usize,
+    /// Names of cookies that were stored.
+    pub cookie_names: Vec<String>,
+    /// `name@domain` of cookies skipped because their domain did not
+    /// match the requested target. Empty in the happy path.
+    pub skipped_cookie_names: Vec<String>,
+}
+
+impl SaveAuthSummary {
+    /// Total count of stored entries.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.cookies + self.local_storage + self.session_storage
+    }
+}
+
+/// Result of [`McpSession::load_auth`].
+#[derive(Debug, Default, Clone)]
+pub struct LoadAuthSummary {
+    /// Cookies hydrated.
+    pub cookies: usize,
+    /// `localStorage` entries hydrated.
+    pub local_storage: usize,
+    /// `sessionStorage` entries hydrated.
+    pub session_storage: usize,
+}
+
+impl LoadAuthSummary {
+    /// Total count of hydrated entries.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.cookies + self.local_storage + self.session_storage
+    }
+}
 
 /// Configuration for spawning the browser bound to this session.
 #[derive(Clone)]
@@ -403,21 +449,54 @@ impl McpSession {
     /// # Errors
     /// Returns [`McpError::ToolFailed`] for capability denials and
     /// [`McpError::Internal`] for vault failures.
-    pub async fn save_auth(&self, domain: &str) -> Result<usize> {
+    pub async fn save_auth(&self, domain: &str) -> Result<SaveAuthSummary> {
         let mut inner = self.inner.lock().await;
         Self::ensure_page(&mut inner).await?;
         let page = inner.page.as_ref().expect("page acquired").page();
 
-        let cookies = dump_cookies(page, &[]).await?;
+        let raw_cookies = dump_cookies(page, &[]).await?;
         let local = dump_local_storage(page).await?;
+        let session = dump_session_storage(page).await?;
+
+        // Diagnostic logging: names only, never values. Visible at
+        // RUST_LOG=info or via the genatp serve --verbose flag.
+        let cdp_cookie_names: Vec<String> = raw_cookies
+            .iter()
+            .map(|c| {
+                format!(
+                    "{}@{}",
+                    c.name,
+                    c.domain.as_deref().unwrap_or("(no-domain)")
+                )
+            })
+            .collect();
+        tracing::info!(
+            target = "genatp::vault",
+            domain,
+            cdp_cookie_count = raw_cookies.len(),
+            local_storage_keys = local.len(),
+            session_storage_keys = session.len(),
+            cdp_cookies = ?cdp_cookie_names,
+            local_storage = ?local.iter().map(|(k, _)| k).collect::<Vec<_>>(),
+            session_storage = ?session.iter().map(|(k, _)| k).collect::<Vec<_>>(),
+            "save_auth — captured (pre-filter)"
+        );
 
         let mut entries: Vec<Entry> = Vec::new();
-        for c in cookies {
+        let mut kept_cookie_names: Vec<String> = Vec::new();
+        let mut skipped_cookie_names: Vec<String> = Vec::new();
+        for c in raw_cookies {
             // Filter to the requested domain only (CDP returns every
             // cookie known to the context — we want session isolation).
             if !cookie_matches_domain(&c, domain) {
+                skipped_cookie_names.push(format!(
+                    "{}@{}",
+                    c.name,
+                    c.domain.as_deref().unwrap_or("(no-domain)")
+                ));
                 continue;
             }
+            kept_cookie_names.push(c.name.clone());
             if let Ok(e) = Entry::cookie(domain, c) {
                 entries.push(e);
             }
@@ -427,10 +506,37 @@ impl McpSession {
                 entries.push(e);
             }
         }
-        if entries.is_empty() {
-            return Ok(0);
+        for (k, v) in session {
+            if let Ok(e) = Entry::session_storage(domain, k, v) {
+                entries.push(e);
+            }
         }
-        let count = entries.len();
+
+        let cookies_kept = kept_cookie_names.len();
+        let local_kept = entries
+            .iter()
+            .filter(|e| matches!(e, Entry::LocalStorage { .. }))
+            .count();
+        let session_kept = entries
+            .iter()
+            .filter(|e| matches!(e, Entry::SessionStorage { .. }))
+            .count();
+
+        tracing::info!(
+            target = "genatp::vault",
+            domain,
+            cookies_kept,
+            local_kept,
+            session_kept,
+            kept_cookies = ?kept_cookie_names,
+            skipped_cookies = ?skipped_cookie_names,
+            "save_auth — after domain filter"
+        );
+
+        if entries.is_empty() {
+            return Ok(SaveAuthSummary::default());
+        }
+
         let cap = inner.vault_capability.clone();
         let vault = Self::ensure_vault(&mut inner)?;
         vault.save(&cap, &entries).map_err(|e| match e {
@@ -439,18 +545,25 @@ impl McpSession {
             }
             other => McpError::Internal(format!("vault save: {other}")),
         })?;
-        Ok(count)
+        Ok(SaveAuthSummary {
+            cookies: cookies_kept,
+            local_storage: local_kept,
+            session_storage: session_kept,
+            cookie_names: kept_cookie_names,
+            skipped_cookie_names,
+        })
     }
 
-    /// Hydrate the current page with cookies + `localStorage` stored
-    /// under `domain` in the vault. The page should already have
-    /// navigated to a same-origin URL so Chrome accepts the cookies.
+    /// Hydrate the current page with cookies + `localStorage` +
+    /// `sessionStorage` stored under `domain` in the vault. The page
+    /// should already have navigated to a same-origin URL so Chrome
+    /// accepts the cookies.
     ///
-    /// Returns the number of entries restored.
+    /// Returns a summary of what was restored.
     ///
     /// # Errors
     /// As for [`Self::save_auth`].
-    pub async fn load_auth(&self, domain: &str) -> Result<usize> {
+    pub async fn load_auth(&self, domain: &str) -> Result<LoadAuthSummary> {
         let mut inner = self.inner.lock().await;
         Self::ensure_page(&mut inner).await?;
         let cap = inner.vault_capability.clone();
@@ -463,23 +576,55 @@ impl McpSession {
         })?;
         let count = entries.len();
         if count == 0 {
-            return Ok(0);
+            return Ok(LoadAuthSummary::default());
         }
 
         let page = inner.page.as_ref().expect("page acquired").page();
         let mut cookies: Vec<Cookie> = Vec::new();
+        let mut cookie_names: Vec<String> = Vec::new();
+        let mut local_keys: Vec<String> = Vec::new();
+        let mut session_keys: Vec<String> = Vec::new();
         for e in entries {
             match e {
-                Entry::Cookie { cookie, .. } => cookies.push(cookie),
+                Entry::Cookie { cookie, .. } => {
+                    cookie_names.push(cookie.name.clone());
+                    cookies.push(cookie);
+                }
                 Entry::LocalStorage { key, value, .. } => {
+                    local_keys.push(key.clone());
                     set_local_storage(page, &key, &value).await?;
+                }
+                Entry::SessionStorage { key, value, .. } => {
+                    session_keys.push(key.clone());
+                    set_session_storage(page, &key, &value).await?;
                 }
             }
         }
         if !cookies.is_empty() {
             set_cookies(page, cookies).await?;
         }
-        Ok(count)
+
+        tracing::info!(
+            target = "genatp::vault",
+            domain,
+            cookies = cookie_names.len(),
+            local_storage = local_keys.len(),
+            session_storage = session_keys.len(),
+            cookie_names = ?cookie_names,
+            local_keys = ?local_keys,
+            session_keys = ?session_keys,
+            "load_auth — hydrated"
+        );
+
+        // Many sites only read session cookies on the next navigation.
+        // Reload in-place so the user does not need a second `navigate`.
+        let _ = page.raw().evaluate("location.reload()").await;
+
+        Ok(LoadAuthSummary {
+            cookies: cookie_names.len(),
+            local_storage: local_keys.len(),
+            session_storage: session_keys.len(),
+        })
     }
 
     /// Enumerate every domain stored in the vault.

@@ -169,6 +169,46 @@ pub async fn dump_local_storage(page: &Page) -> Result<Vec<(String, String)>> {
     Ok(map.into_iter().collect())
 }
 
+/// Dump every `sessionStorage` key/value pair currently visible to
+/// `page`. Unlike localStorage, sessionStorage is per-tab and per-origin;
+/// it is normally cleared when the tab closes, but rehydrating it on
+/// process restart restores SPAs that keep auth tokens there.
+///
+/// # Errors
+/// Returns the underlying CDP error if `Runtime.evaluate` fails.
+pub async fn dump_session_storage(page: &Page) -> Result<Vec<(String, String)>> {
+    let script = r#"
+        (() => {
+          const out = {};
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const k = sessionStorage.key(i);
+            out[k] = sessionStorage.getItem(k);
+          }
+          return JSON.stringify(out);
+        })()
+    "#;
+    let result = page.raw().evaluate(script).await?;
+    let json: String = match result.into_value::<String>() {
+        Ok(s) => s,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let map: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(&json).unwrap_or_default();
+    Ok(map.into_iter().collect())
+}
+
+/// Set a single named sessionStorage value for the given origin.
+///
+/// # Errors
+/// Returns the underlying CDP error if `Runtime.evaluate` fails.
+pub async fn set_session_storage(page: &Page, key: &str, value: &str) -> Result<()> {
+    let escaped_key = serde_json::to_string(key).expect("string serializes");
+    let escaped_value = serde_json::to_string(value).expect("string serializes");
+    let script = format!("sessionStorage.setItem({escaped_key}, {escaped_value});");
+    page.raw().evaluate(script).await?;
+    Ok(())
+}
+
 /// Read a single localStorage value, returning `None` if the key is absent.
 ///
 /// # Errors

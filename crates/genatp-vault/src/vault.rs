@@ -22,7 +22,9 @@ use crate::capability::Capability;
 use crate::crypto::{
     Dek, Sealed, derive_dek, generate_master_key, open as gcm_open, seal as gcm_seal,
 };
-use crate::entry::{Entry, KIND_COOKIE, KIND_LOCAL_STORAGE, canonical_domain};
+use crate::entry::{
+    Entry, KIND_COOKIE, KIND_LOCAL_STORAGE, KIND_SESSION_STORAGE, canonical_domain,
+};
 use crate::error::{Result, VaultError};
 #[cfg(test)]
 use crate::keystore::InMemoryKeyStore;
@@ -276,6 +278,7 @@ impl Vault {
             let kind = match e {
                 Entry::Cookie { .. } => KIND_COOKIE,
                 Entry::LocalStorage { .. } => KIND_LOCAL_STORAGE,
+                Entry::SessionStorage { .. } => KIND_SESSION_STORAGE,
             };
             let sub_key = e.sub_key();
             let mut plaintext = serde_json::to_vec(e)?;

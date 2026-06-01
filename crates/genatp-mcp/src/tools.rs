@@ -341,7 +341,28 @@ pub async fn dispatch(
         "save_auth" => {
             let a: DomainArgs = parse_args(arguments, name)?;
             match session.save_auth(&a.domain).await {
-                Ok(n) => Ok(text_ok(format!("saved {n} auth entries for {}", a.domain))),
+                Ok(s) => {
+                    use std::fmt::Write as _;
+                    let mut out = format!(
+                        "saved {} auth entries for {} (cookies={}, localStorage={}, sessionStorage={})",
+                        s.total(),
+                        a.domain,
+                        s.cookies,
+                        s.local_storage,
+                        s.session_storage
+                    );
+                    if !s.cookie_names.is_empty() {
+                        let _ = write!(out, "\n  cookie names: {}", s.cookie_names.join(", "));
+                    }
+                    if !s.skipped_cookie_names.is_empty() {
+                        let _ = write!(
+                            out,
+                            "\n  skipped (wrong domain): {}",
+                            s.skipped_cookie_names.join(", ")
+                        );
+                    }
+                    Ok(text_ok(out))
+                }
                 Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
                 Err(McpError::Browser(e)) => Ok(text_err(format!("save_auth failed: {e}"))),
                 Err(e) => Err(e),
@@ -350,13 +371,17 @@ pub async fn dispatch(
         "load_auth" => {
             let a: DomainArgs = parse_args(arguments, name)?;
             match session.load_auth(&a.domain).await {
-                Ok(0) => Ok(text_ok(format!(
+                Ok(s) if s.total() == 0 => Ok(text_ok(format!(
                     "no auth entries stored for {} — log in interactively then call save_auth",
                     a.domain
                 ))),
-                Ok(n) => Ok(text_ok(format!(
-                    "hydrated {n} auth entries for {}",
-                    a.domain
+                Ok(s) => Ok(text_ok(format!(
+                    "hydrated {} auth entries for {} (cookies={}, localStorage={}, sessionStorage={})",
+                    s.total(),
+                    a.domain,
+                    s.cookies,
+                    s.local_storage,
+                    s.session_storage
                 ))),
                 Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
                 Err(McpError::Browser(e)) => Ok(text_err(format!("load_auth failed: {e}"))),
