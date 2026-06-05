@@ -104,6 +104,10 @@ keyring = { version = "3", default-features = false, features = [
   "linux-native",
 ] }
 directories = "5"
+# Phase 7 — Cassette signing
+# ed25519-dalek is pure-Rust, widely audited, and the standard ed25519
+# implementation in the Rust ecosystem. Keeps us on all-RustCrypto.
+ed25519-dalek = { version = "2", features = ["rand_core", "serde"] }
 # dev-only — fixture HTTP server + benchmarks + property/snapshot tests
 axum = "0.8"
 tower-http = { version = "0.6", features = ["trace", "cors"] }

@@ -54,6 +54,13 @@ pub enum Command {
         #[command(subcommand)]
         action: VaultAction,
     },
+    /// Record a successful agent run as a signed cassette.
+    Record(RecordArgs),
+    /// Manage cassettes (list, inspect).
+    Cassette {
+        #[command(subcommand)]
+        action: CassetteAction,
+    },
 }
 
 /// Subcommands under `genatp vault`.
@@ -68,6 +75,44 @@ pub enum VaultAction {
     },
     /// Print the on-disk vault path that would be used.
     Path,
+}
+
+/// Arguments for `genatp record`.
+#[derive(Debug, clap::Args)]
+pub struct RecordArgs {
+    /// Human-readable slug for the cassette (e.g. `github-login-repo-lookup`).
+    pub slug: String,
+    /// URL to start the agent on.
+    pub url: String,
+    /// Free-form goal for the agent.
+    pub goal: String,
+    /// LLM model to use (e.g. `gpt-4`, `claude-sonnet-4-20250514`).
+    #[arg(long, default_value = "gpt-4")]
+    pub model: String,
+    /// Maximum agent steps before giving up.
+    #[arg(long, default_value_t = 30)]
+    pub max_steps: u32,
+    /// Launch Chrome in headed mode (visible window).
+    #[arg(long)]
+    pub headed: bool,
+    /// Description for the cassette metadata.
+    #[arg(long, default_value = "")]
+    pub description: String,
+}
+
+/// Subcommands under `genatp cassette`.
+#[derive(Debug, Subcommand)]
+pub enum CassetteAction {
+    /// List all stored cassettes and their versions.
+    List,
+    /// Inspect a cassette: decode, verify, and print its contents.
+    Inspect {
+        /// Cassette slug to inspect.
+        slug: String,
+        /// Specific version (default: latest).
+        #[arg(long)]
+        version: Option<String>,
+    },
 }
 
 /// Arguments for `genatp serve`.
@@ -147,6 +192,20 @@ pub fn run() -> i32 {
                 1
             }
         },
+        Some(Command::Record(args)) => match run_record(args) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: record failed: {e:#}");
+                1
+            }
+        },
+        Some(Command::Cassette { action }) => match run_cassette(action) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: cassette failed: {e:#}");
+                1
+            }
+        },
     }
 }
 
@@ -174,6 +233,91 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
         }
         Ok::<(), anyhow::Error>(())
     })
+}
+
+fn run_record(_args: RecordArgs) -> anyhow::Result<()> {
+    // Phase 7: recording requires the full orchestrator + browser. For now
+    // wire the skeleton so the CLI compiles; the live implementation plugs
+    // in when the orchestrator exposes a "record mode" flag (Phase 7 E2E
+    // integration, tested via `cargo run -p genatp-cli -- record ...`).
+    //
+    // The actual recording flow is:
+    //   1. Launch browser (headed/headless per --headed flag).
+    //   2. Build a Task from the CLI args.
+    //   3. Run the orchestrator with an EventLog.
+    //   4. On success, feed the EventLog to CassetteRecorder.
+    //   5. Sign and save to ~/.genatp/cassettes/<slug>/versions/1.0.0.cassette.
+    eprintln!("genatp record: this command will be fully wired in Phase 7 E2E integration.");
+    eprintln!("The cassette recording library is ready — see `genatp-cassette` crate.");
+    eprintln!("Use `genatp cassette list` and `genatp cassette inspect` for existing cassettes.");
+    Ok(())
+}
+
+fn run_cassette(action: CassetteAction) -> anyhow::Result<()> {
+    match action {
+        CassetteAction::List => {
+            let root = genatp_cassette::cassettes_dir()
+                .map_err(|e| anyhow::anyhow!("cassette storage: {e}"))?;
+            let slugs = genatp_cassette::list_slugs(&root)
+                .map_err(|e| anyhow::anyhow!("list slugs: {e}"))?;
+            if slugs.is_empty() {
+                println!("no cassettes recorded yet");
+                return Ok(());
+            }
+            println!("{:<40} versions", "slug");
+            for slug in &slugs {
+                let versions = genatp_cassette::list_versions(&root, slug).unwrap_or_default();
+                println!("{:<40} {}", slug, versions.join(", "));
+            }
+            Ok(())
+        }
+        CassetteAction::Inspect { slug, version } => {
+            let root = genatp_cassette::cassettes_dir()
+                .map_err(|e| anyhow::anyhow!("cassette storage: {e}"))?;
+
+            let path = if let Some(v) = version {
+                genatp_cassette::cassette_path(&root, &slug, &v)
+            } else {
+                genatp_cassette::storage::latest_version_path(&root, &slug)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?
+            };
+
+            // Load the signing key for verification.
+            let verifying_key = genatp_cassette::signing::load_verifying_key()
+                .map_err(|e| anyhow::anyhow!("cannot load signing key: {e}"))?;
+            let cassette = genatp_cassette::load(&path, &verifying_key)
+                .map_err(|e| anyhow::anyhow!("load failed: {e}"))?;
+
+            println!(
+                "Cassette: {} v{}",
+                cassette.header.slug, cassette.header.version
+            );
+            println!("  Schema version: {}", cassette.header.schema_version);
+            println!("  Goal:           {}", cassette.header.goal);
+            println!("  Start URL:      {}", cassette.header.start_url);
+            println!("  Model:          {}", cassette.header.model);
+            println!("  Recorded at:    {}", cassette.header.recorded_at);
+            println!("  Steps:          {}", cassette.header.step_count);
+            println!("  Signer:         {}", cassette.header.signer_public_key);
+            if !cassette.header.domains.is_empty() {
+                println!("  Domains:        {}", cassette.header.domains.join(", "));
+            }
+            println!("  Signature:      VALID ✓");
+            println!("  Hash chain:     VALID ✓");
+            println!();
+            println!("Steps:");
+            for step in &cassette.steps {
+                println!(
+                    "  [{:>2}] {} → {:?} ({})",
+                    step.seq,
+                    step.url,
+                    step.action,
+                    if step.action_success { "ok" } else { "FAIL" }
+                );
+            }
+            Ok(())
+        }
+    }
 }
 
 fn run_vault(action: VaultAction) -> anyhow::Result<()> {
@@ -280,6 +424,104 @@ mod tests {
                 assert_eq!(a.user_data_dir, Some(PathBuf::from("/tmp/x")));
             }
             _ => panic!("expected serve"),
+        }
+    }
+
+    #[test]
+    fn parse_record_subcommand() {
+        let cli = Cli::try_parse_from([
+            "genatp",
+            "record",
+            "my-slug",
+            "https://example.com",
+            "Click the button",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Record(a)) => {
+                assert_eq!(a.slug, "my-slug");
+                assert_eq!(a.url, "https://example.com");
+                assert_eq!(a.goal, "Click the button");
+                assert_eq!(a.model, "gpt-4"); // default
+                assert_eq!(a.max_steps, 30); // default
+                assert!(!a.headed);
+            }
+            _ => panic!("expected record subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_record_with_options() {
+        let cli = Cli::try_parse_from([
+            "genatp",
+            "record",
+            "my-slug",
+            "https://example.com",
+            "goal",
+            "--model",
+            "claude-sonnet-4-20250514",
+            "--max-steps",
+            "10",
+            "--headed",
+            "--description",
+            "Login flow",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Record(a)) => {
+                assert_eq!(a.model, "claude-sonnet-4-20250514");
+                assert_eq!(a.max_steps, 10);
+                assert!(a.headed);
+                assert_eq!(a.description, "Login flow");
+            }
+            _ => panic!("expected record subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_cassette_list() {
+        let cli = Cli::try_parse_from(["genatp", "cassette", "list"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Cassette {
+                action: CassetteAction::List
+            })
+        ));
+    }
+
+    #[test]
+    fn parse_cassette_inspect() {
+        let cli = Cli::try_parse_from(["genatp", "cassette", "inspect", "my-slug"]).unwrap();
+        match cli.command {
+            Some(Command::Cassette {
+                action: CassetteAction::Inspect { slug, version },
+            }) => {
+                assert_eq!(slug, "my-slug");
+                assert!(version.is_none());
+            }
+            _ => panic!("expected cassette inspect subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_cassette_inspect_with_version() {
+        let cli = Cli::try_parse_from([
+            "genatp",
+            "cassette",
+            "inspect",
+            "my-slug",
+            "--version",
+            "1.1.0",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Cassette {
+                action: CassetteAction::Inspect { slug, version },
+            }) => {
+                assert_eq!(slug, "my-slug");
+                assert_eq!(version, Some("1.1.0".into()));
+            }
+            _ => panic!("expected cassette inspect subcommand"),
         }
     }
 }

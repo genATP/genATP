@@ -14,3 +14,25 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+zstd = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+directories = { workspace = true }
+# Signing — ed25519-dalek is pure-Rust, audited, and the standard choice
+# for ed25519 in the Rust ecosystem. Mirrors the vault's decision to avoid
+# `ring` in favour of fewer audit surfaces (see workspace Cargo.toml notes).
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }
+url = { workspace = true }
+# Cross-crate
+genatp-core = { path = "../genatp-core" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+genatp-llm = { path = "../genatp-llm" }
