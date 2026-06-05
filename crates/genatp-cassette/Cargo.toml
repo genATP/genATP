@@ -32,7 +32,12 @@ base64 = { workspace = true }
 url = { workspace = true }
 # Cross-crate
 genatp-core = { path = "../genatp-core" }
+# Async replay support
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
 genatp-llm = { path = "../genatp-llm" }
+genatp-browser = { path = "../genatp-browser" }
+tokio = { workspace = true, features = ["rt", "macros", "time"] }

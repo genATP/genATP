@@ -6,6 +6,8 @@
 
 use std::path::PathBuf;
 
+use genatp_core::action::Action;
+
 /// All errors surfaced by `genatp-cassette`.
 #[derive(Debug, thiserror::Error)]
 pub enum CassetteError {
@@ -55,6 +57,14 @@ pub enum CassetteError {
     /// Cassette storage directory could not be resolved.
     #[error("cassette storage: {0}")]
     Storage(String),
+
+    /// Replay failed on a specific step.
+    #[error("replay failed at step {step}: {reason} (action: {action:?})")]
+    ReplayFailed {
+        step: u32,
+        action: Action,
+        reason: String,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, CassetteError>;

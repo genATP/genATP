@@ -33,4 +33,5 @@ genatp-mcp = { path = "../genatp-mcp" }
 genatp-browser = { path = "../genatp-browser" }
 genatp-vault = { path = "../genatp-vault" }
 genatp-cassette = { path = "../genatp-cassette" }
+genatp-core = { path = "../genatp-core" }
 chrono = { workspace = true }

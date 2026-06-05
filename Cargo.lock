@@ -1129,11 +1129,13 @@ dependencies = [
 name = "genatp-cassette"
 version = "0.3.0"
 dependencies = [
+ "async-trait",
  "base64",
  "blake3",
  "chrono",
  "directories 5.0.1",
  "ed25519-dalek",
+ "genatp-browser",
  "genatp-core",
  "genatp-llm",
  "hex",
@@ -1142,6 +1144,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "url",
  "zstd",
@@ -1156,6 +1159,7 @@ dependencies = [
  "clap",
  "genatp-browser",
  "genatp-cassette",
+ "genatp-core",
  "genatp-mcp",
  "genatp-vault",
  "serde",

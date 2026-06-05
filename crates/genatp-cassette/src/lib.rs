@@ -36,12 +36,14 @@
 pub mod canon;
 pub mod error;
 pub mod record;
+pub mod replay;
 pub mod schema;
 pub mod signing;
 pub mod storage;
 
 pub use error::{CassetteError, Result};
 pub use record::CassetteRecorder;
+pub use replay::{CassetteReplayer, ReplayOutcome, ReplayStepResult, ReplayStepStatus};
 pub use schema::{CASSETTE_EXT, Cassette, CassetteHeader, CassetteStep, SCHEMA_VERSION};
 pub use signing::{ensure_keypair, public_key_from_hex, public_key_hex};
 pub use storage::{cassette_path, cassettes_dir, list_slugs, list_versions, load, save};
