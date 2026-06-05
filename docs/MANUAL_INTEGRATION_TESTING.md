@@ -320,46 +320,33 @@ Options:
 
 ## 4. MCP Server — stdio Transport
 
-The stdio transport is the primary way Claude Desktop, Cursor, and the
+The stdio transport speaks JSON-RPC 2.0 over **stdin/stdout** (standard
+input and output). It is the primary way Claude Desktop, Cursor, and the
 MCP Inspector connect to genATP.
+
+> ⚠ **Important:** `--stdio` does NOT bind an HTTP port. You cannot use
+> `curl` or `Invoke-RestMethod` against `http://127.0.0.1:3000` when the
+> server is started with `--stdio`. For HTTP testing, use `--port 3000`
+> instead (see §5).
 
 ### 4.1 Basic stdio Initialization
 
 Start the server:
 
 ```bash
-cargo run --release -p genatp-cli -- serve --stdio --headed
+cargo run --release -p genatp-cli -- serve --stdio --headed -vv
 ```
 
-You should see a Chrome window open in headed mode. The server waits on
-stdin for JSON-RPC messages.
+> 💡 **Chrome is lazy-launched.** The server process starts immediately
+> and waits for JSON-RPC on stdin. Chrome will NOT appear yet — it only
+> launches on the first browser command (`navigate`, `snapshot`, etc.).
+> See §4.2 for how to trigger it.
 
-**Terminal B** — send initialize + tools/list:
-
-> ⚠ **MCP protocol requires a `notifications/initialized` handshake** after
-> `initialize`. The examples below include it. Without it, some MCP clients
-> may behave unexpectedly.
+**Terminal B** — use the PowerShell test script to send initialize +
+tools/list:
 
 ```powershell
-# mcp_client.ps1 does this automatically:
 .\mcp_client.ps1
-```
-
-If you prefer manual JSON-RPC, run:
-
-```powershell
-# Initialize
-$body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}'
-$headers = @{"content-type" = "application/json"}
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ -Headers $headers -Body $body
-
-# Send initialized notification (required after initialize)
-$notify = '{"jsonrpc":"2.0","method":"notifications/initialized"}'
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ -Headers $headers -Body $notify | Out-Null
-
-# List tools
-$body2 = '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ -Headers $headers -Body $body2
 ```
 
 **Expected output:**
@@ -384,51 +371,139 @@ Verify the following tools are present:
 
 ---
 
-### 4.2 Manual JSON-RPC: Navigate + Snapshot
+### 4.2 Trigger Chrome Launch (Navigate to a Page)
 
-With the server running (`--headed` so you can see the browser):
+> 💡 **This is the moment Chrome appears in headed mode.**
 
-```bash
-# Send initialize
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}'
+With the server still running from §4.1, the `mcp_client.ps1` script has
+already called `initialize` and `tools/list`. Now trigger Chrome by
+sending a `navigate` command. Because we're using the **stdio** transport,
+you cannot use curl — you need a script that writes JSON-RPC to stdin.
+
+Use this PowerShell snippet to pipe a navigate command through stdin:
+
+```powershell
+# Pipe a navigate command to the genatp process via stdin
+$navigate = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
+# Write to the genatp process's stdin (this is running in Terminal A)
+# In Terminal A, type or paste:
+# {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}
+# and press Enter.
 ```
 
-```bash
-# Navigate to example.com
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
-```
+**Chrome should now appear** — a visible browser window opens and
+navigates to `https://example.com`. This is because `navigate` is the
+first tool that requires a browser page, triggering the lazy launch.
 
-**Expected output:** Contains `"isError":false` and a text result with the
-final URL.
-
-```bash
-# Take a snapshot
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"snapshot"}}'
-```
-
-**Expected output:** JSON with compressed accessibility tree containing
-`@e1`, `@e2`, etc. refs.
-
-```bash
-# Get the current URL
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_url"}}'
-```
-
-**Expected output:** `https://example.com/`
+The stdio transport is primarily for Claude Desktop / Cursor integration
+(they manage stdin/stdout automatically). For manual testing with
+`curl` / `Invoke-RestMethod`, use the **HTTP transport** instead (see §5).
 
 ---
 
-### 4.3 Real Site: GitHub.com Navigation
+## 5. MCP Server — HTTP Transport
 
-With the server running:
+The HTTP transport speaks JSON-RPC 2.0 over HTTP on `127.0.0.1:<port>`.
+This is the best transport for **manual testing** with `curl` or
+PowerShell `Invoke-RestMethod`.
+
+### 5.1 Start HTTP Server
+
+Start the server with `--port` (NOT `--stdio`):
+
+```bash
+cargo run --release -p genatp-cli -- serve --port 3000 --headed -vv
+```
+
+> 💡 **Chrome is lazy-launched** — it will NOT appear yet. Chrome only
+> launches on the first browser command (`navigate`, `snapshot`, etc.).
+> Sending `initialize` and `tools/list` does not launch it.
+
+Expected output on stderr:
+```
+2026-06-05T10:00:00.000000Z  INFO genatp_mcp::http: starting MCP HTTP server addr=127.0.0.1:3000
+```
+
+### 5.2 Health Check
+
+```bash
+curl -s http://127.0.0.1:3000/healthz
+```
+
+**Expected:** `200 OK` (empty body or `ok`)
+
+### 5.3 Full Tool Round-Trip
+
+Send a complete initialize + tool call sequence. Following the MCP
+protocol, you MUST send `notifications/initialized` after `initialize`.
+
+**Step 1 — Initialize:**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+```
+
+**Response:** Server info + capabilities.
+
+**Step 2 — Send initialized notification (REQUIRED):**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+```
+
+**Response:** 200 OK, empty body (notifications have no response).
+
+**Step 3 — List tools:**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```
+
+**Response:** Array of 9+ tool definitions.
+
+**Step 4 — Navigate (🔥 Chrome launches here):**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
+```
+
+> 💡 **Chrome appears NOW** — a visible browser window opens and
+> navigates to `https://example.com`. This is the first tool call that
+> needs a browser page, so the engine launches Chrome lazily.
+
+**Response:** `"isError":false` with the final URL in `text`.
+
+**Step 5 — Snapshot:**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"snapshot"}}'
+```
+
+**Response:** Compressed accessibility tree JSON with `@e1`, `@e2`, etc. refs.
+
+**Step 6 — Get current URL:**
+
+```bash
+curl -sX POST http://127.0.0.1:3000/ \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_url"}}'
+```
+
+**Response:** `https://example.com/`
+
+### 5.4 Real Site: GitHub.com Navigation
+
+With the server still running (`--port 3000 --headed`):
 
 ```bash
 # Navigate to GitHub
@@ -478,7 +553,7 @@ curl -sX POST http://127.0.0.1:3000/ \
 **Expected output:** A base64-encoded PNG image.
 
 ```bash
-# Go back (should go to blank page since GitHub was first navigation)
+# Go back
 curl -sX POST http://127.0.0.1:3000/ \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"go_back"}}'
@@ -486,9 +561,7 @@ curl -sX POST http://127.0.0.1:3000/ \
 
 **Expected output:** `"text": "no prior page"` or `"navigated back"`.
 
----
-
-### 4.4 Real Site: Fill + Click on a Form
+### 5.5 Real Site: Fill + Click on a Form
 
 **Test site:** `https://httpbin.org/forms/post` (a simple HTML form)
 
@@ -532,17 +605,15 @@ curl -sX POST http://127.0.0.1:3000/ \
 **Expected output:** The form submits and the page navigates to the
 response page.
 
----
-
-### 4.5 Verbose Logging
+### 5.6 Verbose Logging
 
 Test with debug logging to troubleshoot:
 
 ```bash
-RUST_LOG=debug cargo run --release -p genatp-cli -- serve --stdio --headed -vv
+RUST_LOG=debug cargo run --release -p genatp-cli -- serve --port 3000 --headed -vv
 ```
 
-In another terminal, send a simple navigate command:
+In another terminal, send a navigate command:
 
 ```bash
 curl -sX POST http://127.0.0.1:3000/ \
@@ -555,15 +626,13 @@ The stderr output shows:
 - `INFO` — navigation lifecycle events
 - `WARN` — any retries or fallbacks
 
----
+### 5.7 Persistent User Data Directory
 
-### 4.6 Persistent User Data Directory
-
-Test that cookies persist across restarts:
+Test that cookies persist across restarts (requires `--port`):
 
 ```bash
 # Terminal A — first session
-cargo run --release -p genatp-cli -- serve --stdio --user-data-dir /tmp/genatp-test-profile --headed
+cargo run --release -p genatp-cli -- serve --port 3000 --user-data-dir /tmp/genatp-test-profile --headed
 ```
 
 ```bash
@@ -585,60 +654,7 @@ curl -sX POST http://127.0.0.1:3000/ \
 The cookies should still be present. (The vault is the *encrypted*
 replacement for this — see §6.)
 
----
-
-## 5. MCP Server — HTTP Transport
-
-### 5.1 Start HTTP Server
-
-```bash
-cargo run --release -p genatp-cli -- serve --port 3000 --headed
-```
-
-Expected output on stderr:
-```
-2026-06-05T10:00:00.000000Z  INFO genatp_mcp::http: starting MCP HTTP server addr=127.0.0.1:3000
-```
-
-### 5.2 Health Check
-
-```bash
-curl -s http://127.0.0.1:3000/healthz
-```
-
-**Expected:** `200 OK` (empty body or `ok`)
-
-### 5.3 Full Tool Round-Trip
-
-Send a complete initialize + tool call sequence:
-
-```bash
-# 1. Initialize
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
-# Response: server info + capabilities
-
-# 2. List tools
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-# Response: array of 9+ tool definitions
-
-# 3. Navigate
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
-# Response: isError=false, text=final URL
-
-# 4. Snapshot (must be called before any element-targeting tool)
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"snapshot"}}'
-# Response: compressed accessibility tree with @eN refs
-```
-
-### 5.4 Error Handling Test
+### 5.8 Error Handling Test
 
 Test that invalid tools return proper errors:
 

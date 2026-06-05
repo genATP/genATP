@@ -31,7 +31,6 @@ use tracing::{debug, info, warn};
 
 use genatp_core::action::Action;
 use genatp_core::dispatcher::BrowserAdapter;
-use genatp_core::error::CoreError;
 
 use crate::error::{CassetteError, Result};
 use crate::schema::Cassette;
@@ -352,6 +351,7 @@ mod tests {
     // `current_url`), so the mock body returns an empty tree.
 
     use genatp_browser::AccessibilityTree;
+    use genatp_core::error::CoreError;
 
     #[derive(Debug, Default)]
     struct MockBrowser {
