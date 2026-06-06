@@ -212,12 +212,45 @@ impl McpSession {
 
     /// Lazily acquire the page guard if not already held. Caller MUST
     /// be holding the inner mutex.
+    ///
+    /// On Chrome 148+ the CDP WebSocket can drop unexpectedly after
+    /// navigation (`ResetWithoutClosingHandshake`). This method detects
+    /// a dead WS by issuing a cheap `url()` call; if the receiver is gone
+    /// it automatically releases the stale page, reconnects the browser
+    /// pool, and opens a fresh tab so subsequent tools work transparently.
     async fn ensure_page(inner: &mut SessionInner) -> Result<()> {
-        if inner.page.is_none() {
-            let page = inner.pool.acquire().await?;
-            inner.page = Some(page);
+        if inner.page.is_some() {
+            // Health-check: is the CDP WebSocket still alive?
+            let page = inner.page.as_ref().unwrap().page();
+            match page.url().await {
+                Ok(_) => return Ok(()), // WS is alive, keep the current page
+                Err(e) if Self::is_dead_connection(&e) => {
+                    tracing::warn!(
+                        target = "genatp::session",
+                        "CDP WebSocket disconnected — reconnecting browser"
+                    );
+                    // Drop the stale page guard.
+                    inner.page = None;
+                    // Re-launch Chrome.
+                    inner.pool.reconnect().await?;
+                    // Acquire a fresh page from the new Chrome.
+                    let fresh = inner.pool.acquire().await?;
+                    inner.page = Some(fresh);
+                    return Ok(());
+                }
+                Err(e) => return Err(McpError::Browser(e)), // propagate other errors
+            }
         }
+        // No page yet — acquire one.
+        let page = inner.pool.acquire().await?;
+        inner.page = Some(page);
         Ok(())
+    }
+
+    /// True if the error indicates the CDP WebSocket receiver channel
+    /// is gone (Chrome closed the connection).
+    fn is_dead_connection(err: &genatp_browser::BrowserError) -> bool {
+        err.to_string().contains("receiver is gone") || err.to_string().contains("channel closed")
     }
 
     /// Navigate the bound tab to `url`. Returns the resolved final URL

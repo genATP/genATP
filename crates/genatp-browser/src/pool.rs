@@ -160,6 +160,29 @@ impl BrowserPool {
         handle.new_page().await
     }
 
+    /// Force-kill the current Chrome instance and re-launch a fresh one.
+    /// Any existing [`PageGuard`] acquired from the old Chrome is now
+    /// stale — callers MUST discard it and call [`acquire`] again.
+    ///
+    /// This is used when the CDP WebSocket drops (e.g. Chrome 148+
+    /// closing the WS after navigation) to recover without restarting
+    /// the entire server process.
+    ///
+    /// # Errors
+    /// Returns [`BrowserError::Launch`] if the new Chrome instance
+    /// cannot start.
+    pub async fn reconnect(&self) -> Result<()> {
+        let mut guard = self.inner.handle.lock().await;
+        // Shut down the old Chrome (best-effort — ignore errors).
+        if let Some(handle) = guard.take() {
+            let _ = handle.shutdown(self.inner.config.shutdown_grace).await;
+        }
+        // Launch a fresh instance.
+        *guard = Some(launch(self.inner.config.launch.clone()).await?);
+        tracing::info!(target = "genatp::browser", "reconnected Chrome instance");
+        Ok(())
+    }
+
     /// Shut the pool down, draining outstanding permits and closing Chrome.
     /// Idempotent — calling twice is a no-op the second time.
     pub async fn shutdown(self) -> Result<()> {

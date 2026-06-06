@@ -318,16 +318,22 @@ Options:
 
 ---
 
-## 4. MCP Server — stdio Transport
+## 4. MCP Server — stdio Transport (for MCP clients only)
 
 The stdio transport speaks JSON-RPC 2.0 over **stdin/stdout** (standard
 input and output). It is the primary way Claude Desktop, Cursor, and the
 MCP Inspector connect to genATP.
 
-> ⚠ **Important:** `--stdio` does NOT bind an HTTP port. You cannot use
-> `curl` or `Invoke-RestMethod` against `http://127.0.0.1:3000` when the
-> server is started with `--stdio`. For HTTP testing, use `--port 3000`
-> instead (see §5).
+> ⚠ **You cannot test stdio with curl or PowerShell `Invoke-RestMethod`.**
+> The stdio transport does NOT bind an HTTP port. It reads JSON-RPC from
+> the process's **standard input** — which means only Claude Desktop,
+> Cursor, or the `mcp_client.ps1` script can communicate with it.
+>
+> **For manual testing with curl / PowerShell, use the HTTP transport:**
+> ```bash
+> cargo run --release -p genatp-cli -- serve --port 3000 --headed
+> ```
+> See §5 for the full HTTP testing guide.
 
 ### 4.1 Basic stdio Initialization
 
@@ -371,33 +377,31 @@ Verify the following tools are present:
 
 ---
 
-### 4.2 Trigger Chrome Launch (Navigate to a Page)
+### 4.2 Testing stdio with the Script
 
-> 💡 **This is the moment Chrome appears in headed mode.**
-
-With the server still running from §4.1, the `mcp_client.ps1` script has
-already called `initialize` and `tools/list`. Now trigger Chrome by
-sending a `navigate` command. Because we're using the **stdio** transport,
-you cannot use curl — you need a script that writes JSON-RPC to stdin.
-
-Use this PowerShell snippet to pipe a navigate command through stdin:
+The only reliable way to test the stdio transport manually is via the
+`mcp_client.ps1` PowerShell script, which correctly pipes JSON-RPC
+messages through stdin/stdout:
 
 ```powershell
-# Pipe a navigate command to the genatp process via stdin
-$navigate = '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
-# Write to the genatp process's stdin (this is running in Terminal A)
-# In Terminal A, type or paste:
-# {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}
-# and press Enter.
+.\mcp_client.ps1
 ```
 
-**Chrome should now appear** — a visible browser window opens and
-navigates to `https://example.com`. This is because `navigate` is the
-first tool that requires a browser page, triggering the lazy launch.
+This script:
+1. Spawns its own `genatp.exe serve --stdio` subprocess
+2. Sends `initialize` with id=1
+3. Sends `tools/list` with id=2
+4. Prints both responses
+5. Kills the subprocess
 
-The stdio transport is primarily for Claude Desktop / Cursor integration
-(they manage stdin/stdout automatically). For manual testing with
-`curl` / `Invoke-RestMethod`, use the **HTTP transport** instead (see §5).
+**For all interactive browser testing (navigate, click, fill, snapshot, etc.),**
+**use the HTTP transport instead:**
+
+```bash
+cargo run --release -p genatp-cli -- serve --port 3000 --headed
+```
+
+Continue with §5 for the full HTTP testing guide.
 
 ---
 
@@ -426,8 +430,8 @@ Expected output on stderr:
 
 ### 5.2 Health Check
 
-```bash
-curl -s http://127.0.0.1:3000/healthz
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:3000/healthz
 ```
 
 **Expected:** `200 OK` (empty body or `ok`)
@@ -439,84 +443,90 @@ protocol, you MUST send `notifications/initialized` after `initialize`.
 
 **Step 1 — Initialize:**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"powershell-test","version":"1"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 **Response:** Server info + capabilities.
 
 **Step 2 — Send initialized notification (REQUIRED):**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+```powershell
+# Notifications have no response — pipe to Out-Null to suppress empty output
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' | Out-Null
 ```
-
-**Response:** 200 OK, empty body (notifications have no response).
 
 **Step 3 — List tools:**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' |
+  ConvertTo-Json -Depth 10
 ```
 
-**Response:** Array of 9+ tool definitions.
+**Expected output:** Full JSON with 12 tool descriptors (names like `navigate`, `snapshot`, `click`, etc.)
 
 **Step 4 — Navigate (🔥 Chrome launches here):**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 > 💡 **Chrome appears NOW** — a visible browser window opens and
 > navigates to `https://example.com`. This is the first tool call that
 > needs a browser page, so the engine launches Chrome lazily.
 
-**Response:** `"isError":false` with the final URL in `text`.
+**Expected output:** `"isError": false` with `"text": "navigated to https://example.com/"`
 
 **Step 5 — Snapshot:**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"snapshot"}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"snapshot"}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-**Response:** Compressed accessibility tree JSON with `@e1`, `@e2`, etc. refs.
+**Expected output:** Compressed accessibility tree JSON with `@e1`, `@e2`, etc. refs.
 
 **Step 6 — Get current URL:**
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_url"}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_url"}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-**Response:** `https://example.com/`
+**Expected output:** `"text": "https://example.com/"`
 
 ### 5.4 Real Site: GitHub.com Navigation
 
 With the server still running (`--port 3000 --headed`):
 
-```bash
+```powershell
 # Navigate to GitHub
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://github.com"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://github.com"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-```bash
+```powershell
 # Snapshot
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"snapshot"}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"snapshot"}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 **Expected output:** A JSON tree with interactive elements like:
@@ -524,101 +534,131 @@ curl -sX POST http://127.0.0.1:3000/ \
 - `@e2` — link to "Sign up"
 - Search field, navigation links, etc.
 
-```bash
+```powershell
 # Extract visible text
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"extract","arguments":{"query":""}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"extract","arguments":{"query":""}}}'
 ```
 
 **Expected output:** Visible text content from the GitHub homepage
 including "Let's build from here" or similar.
 
-```bash
+```powershell
 # Scroll down
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"scroll","arguments":{"dx":0,"dy":500}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"scroll","arguments":{"dx":0,"dy":500}}}'
 ```
 
 **Expected output:** `"isError":false`
 
-```bash
+```powershell
 # Take a screenshot
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"screenshot"}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"screenshot"}}'
 ```
 
 **Expected output:** A base64-encoded PNG image.
 
-```bash
+```powershell
 # Go back
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"go_back"}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"go_back"}}'
 ```
 
 **Expected output:** `"text": "no prior page"` or `"navigated back"`.
 
 ### 5.5 Real Site: Fill + Click on a Form
 
-**Test site:** `https://httpbin.org/forms/post` (a simple HTML form)
+**Test site:** `https://www.automationtesting.co.uk/contactForm.html` (a contact form with First Name, Last Name, Email, and Comments fields)
 
-```bash
+> ⚠ **httpbin.org is no longer available (returns 503).**
+> `automationtesting.co.uk` is used instead. The form fields are:
+> First Name (textbox), Last Name (textbox), Email Address (textbox),
+> Comments (textarea), RESET (button), SUBMIT (button).
+
+```powershell
 # Navigate to the form
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/forms/post"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://www.automationtesting.co.uk/contactForm.html"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-```bash
-# Snapshot
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"snapshot"}}'
+```powershell
+# Snapshot — find the @eN refs for form elements
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"snapshot"}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-Note the `@eN` refs for the form fields.
+Note the `@eN` refs for the form fields. Expected refs from the snapshot:
+- `@e442` (or similar) — First Name
+- `@e443` (or similar) — Last Name
+- `@e444` (or similar) — Email Address
+- `@e445` (or similar) — Comments
+- `@e448` (or similar) — SUBMIT button
 
-```bash
-# Fill the "custname" field (replace @eX with actual ref from snapshot)
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e3","value":"John Doe"}}}'
+```powershell
+# Fill the "First Name" field (replace @eX with actual ref from snapshot)
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e442","value":"John"}}}'
 ```
 
-```bash
-# Fill the "custemail" field
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e4","value":"john@example.com"}}}'
+```powershell
+# Fill the "Last Name" field
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e443","value":"Doe"}}}'
 ```
 
-```bash
-# Click the submit button (replace @eX with actual ref)
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"click","arguments":{"ref":"@e7"}}}'
+```powershell
+# Fill the "Email Address" field
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e444","value":"john@example.com"}}}'
 ```
 
-**Expected output:** The form submits and the page navigates to the
-response page.
+```powershell
+# Fill the "Comments" field
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"fill","arguments":{"ref":"@e445","value":"This is a test message to verify the form submission functionality."}}}'
+```
+
+```powershell
+# Click the SUBMIT button (replace @eX with actual ref)
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"click","arguments":{"ref":"@e448"}}}'
+```
+
+**Expected output:** The form submits and the page navigates to
+`https://www.automationtesting.co.uk/contact-form-thank-you.html`
+showing: **"Thank you for your mail!"**
 
 ### 5.6 Verbose Logging
 
 Test with debug logging to troubleshoot:
 
-```bash
-RUST_LOG=debug cargo run --release -p genatp-cli -- serve --port 3000 --headed -vv
+```powershell
+# Terminal A: Start with RUST_LOG=debug
+$env:RUST_LOG = "debug"
+cargo run --release -p genatp-cli -- serve --port 3000 --headed -vv
 ```
 
 In another terminal, send a navigate command:
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://example.com"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 The stderr output shows:
@@ -630,25 +670,27 @@ The stderr output shows:
 
 Test that cookies persist across restarts (requires `--port`):
 
-```bash
-# Terminal A — first session
-cargo run --release -p genatp-cli -- serve --port 3000 --user-data-dir /tmp/genatp-test-profile --headed
+```powershell
+# Terminal A — first session (use a Windows temp path instead of /tmp)
+cargo run --release -p genatp-cli -- serve --port 3000 --user-data-dir "$env:TEMP\genatp-test-profile" --headed
 ```
 
-```bash
+```powershell
 # Terminal B — navigate to a site that sets cookies
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies/set?test_cookie=hello123"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies/set?test_cookie=hello123"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 Stop the server (Ctrl-C), restart with the same `--user-data-dir`, then:
 
-```bash
+```powershell
 # Check cookies
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 The cookies should still be present. (The vault is the *encrypted*
@@ -658,23 +700,25 @@ replacement for this — see §6.)
 
 Test that invalid tools return proper errors:
 
-```bash
+```powershell
 # Unknown tool
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-**Expected:** `"isError":true` with an appropriate error message.
+**Expected:** `"isError": true` with an appropriate error message.
 
-```bash
+```powershell
 # Navigate to invalid URL
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"not-a-url"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"not-a-url"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
-**Expected:** `"isError":true` with URL parse error message.
+**Expected:** `"isError": true` with URL parse error message.
 
 ---
 
@@ -743,34 +787,25 @@ cargo run --release -p genatp-cli -- serve --port 3000 --headed
 
 Wait for the server to start and Chrome to open.
 
-**Step 2:** Navigate to a login page:
+**Step 2:** Navigate to a test page:
 
-```bash
-# Using httpbin.org's basic auth (no actual login needed for testing)
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/basic-auth/user/pass"}}}'
-```
-
-This will show a browser auth prompt (which we'll skip). For a real
-test, use a site with an HTML login form:
-
-```bash
-# Navigate to httpbin's HTML form
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/forms/post"}}}'
+```powershell
+# Navigate to a site that may set cookies (for save_auth testing)
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://www.automationtesting.co.uk/contactForm.html"}}}' |
+  ConvertTo-Json -Depth 10
 ```
 
 **Step 3:** Save auth for the domain:
 
-```bash
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"save_auth","arguments":{"domain":"httpbin.org"}}}'
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"save_auth","arguments":{"domain":"automationtesting.co.uk"}}}'
 ```
 
-**Expected output:** A message like `"saved N auth entries for httpbin.org"`
+**Expected output:** A message like `"saved N auth entries for automationtesting.co.uk"`
 or `"saved 0 auth entries"` (if no cookies/storage were set).
 
 **Step 4:** Verify via CLI:
@@ -782,21 +817,21 @@ cargo run --release -p genatp-cli -- vault list
 **Expected output:** A table with the domain, entry count, and timestamp:
 ```
 domain                                      count  updated
-httpbin.org                                     1  2026-06-05 10:00:00 UTC
+automationtesting.co.uk                         0  2026-06-05 10:00:00 UTC
 ```
 
 **Step 5:** Revoke:
 
 ```bash
-cargo run --release -p genatp-cli -- vault revoke httpbin.org
-# revoked all entries for `httpbin.org`
+cargo run --release -p genatp-cli -- vault revoke automationtesting.co.uk
+# revoked all entries for `automationtesting.co.uk`
 ```
 
 **Step 6:** Verify revocation:
 
 ```bash
 cargo run --release -p genatp-cli -- vault list
-# vault is empty — or shows other domains but not httpbin.org
+# vault is empty — or shows other domains but not automationtesting.co.uk
 ```
 
 ### 6.4 Persistence Across Restarts (The Killer Test)
@@ -809,18 +844,19 @@ This is the most important vault test — it proves auth outlives the process.
 cargo run --release -p genatp-cli -- serve --port 3000 --headed
 ```
 
-**Step 2:** Save auth for a domain:
+**Step 2:** Save auth for a domain (use a site that sets cookies, like GitHub):
 
-```bash
+```powershell
 # Navigate
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies/set?session=abc123"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://github.com"}}}' |
+  ConvertTo-Json -Depth 10
 
 # Save auth
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"save_auth","arguments":{"domain":"httpbin.org"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"save_auth","arguments":{"domain":"github.com"}}}'
 ```
 
 **Step 3:** Kill the server (Ctrl-C).
@@ -833,16 +869,17 @@ cargo run --release -p genatp-cli -- serve --port 3000 --headed
 
 **Step 5:** Load auth and verify:
 
-```bash
+```powershell
 # Navigate (required to set the domain context)
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://httpbin.org/cookies"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"navigate","arguments":{"url":"https://github.com"}}}' |
+  ConvertTo-Json -Depth 10
 
 # Load auth
-curl -sX POST http://127.0.0.1:3000/ \
-  -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"load_auth","arguments":{"domain":"httpbin.org"}}}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"load_auth","arguments":{"domain":"github.com"}}}'
 ```
 
 **Expected output:** `"hydrated N auth entries"` — proving the session
@@ -1385,18 +1422,23 @@ cargo build --release -p genatp-browser -p genatp-cassette
 
 ### 11.9 Windows-Specific Issues
 
-**PowerShell quoting:** When passing JSON with curl on Windows, use
-single quotes for the outer string or escape double quotes:
+**PowerShell quoting:** When passing JSON with `Invoke-RestMethod` on Windows,
+use single quotes for the JSON body string. PowerShell single-quoted strings
+are verbatim — no escaping needed:
 
 ```powershell
-# PowerShell (escaped)
-curl -sX POST http://127.0.0.1:3000/ -H 'content-type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'
+# Recommended: inline body with Invoke-RestMethod
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
-# Better: PowerShell with a here-string
+# Alternative: PowerShell with a here-string (better for long bodies)
 $body = @'
 {"jsonrpc":"2.0","id":1,"method":"tools/list"}
 '@
-curl -sX POST http://127.0.0.1:3000/ -H 'content-type: application/json' -d $body
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3000/ `
+  -ContentType "application/json" `
+  -Body $body
 ```
 
 **Path separators:** Always use forward slashes `/` in URLs. Use
@@ -1540,10 +1582,7 @@ differences:
 | URL | Purpose | Requires Auth |
 |-----|---------|---------------|
 | `https://example.com` | Basic navigation, snapshot | No |
-| `https://httpbin.org/forms/post` | Form fill + submit | No |
-| `https://httpbin.org/cookies/set?k=v` | Cookie setting | No |
-| `https://httpbin.org/cookies` | Cookie reading | No |
-| `https://httpbin.org/basic-auth/u/p` | HTTP basic auth | Yes (u/p) |
+| `https://www.automationtesting.co.uk/contactForm.html` | Form fill + submit | No |
 | `https://github.com` | Real-world navigation, snapshot | No |
 | `https://github.com/login` | Login form (for vault tests) | Yes |
 

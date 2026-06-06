@@ -212,7 +212,10 @@ impl LaunchOptions {
             "--no-first-run".to_string(),
             "--no-default-browser-check".to_string(),
             // Stable rendering across runs.
-            "--disable-features=Translate,BackForwardCache,AcceptCHFrame".to_string(),
+            "--disable-features=Translate,BackForwardCache,AcceptCHFrame,IsolateOrigins,SitePerProcess,ProcessPerSiteUpToMainFrameThreshold".to_string(),
+            // Prevent background network requests (favicons, etc.) that trigger
+            // unknown CDP events on Chrome 120+ and can destabilise the WS.
+            "--disable-background-networking".to_string(),
             // Stability fixes for headless on CI runners + restricted host filesystems.
             // /dev/shm is small in containers; --disable-dev-shm-usage falls back to /tmp.
             "--disable-dev-shm-usage".to_string(),
