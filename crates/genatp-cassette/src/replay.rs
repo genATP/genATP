@@ -173,7 +173,7 @@ impl CassetteReplayer {
             let current_url = adapter
                 .current_url()
                 .await
-                .unwrap_or_else(|_| None)
+                .unwrap_or(None)
                 .unwrap_or_default();
 
             // If the action was Finish, we're done.
@@ -304,7 +304,7 @@ impl CassetteReplayer {
         let current_url = adapter
             .current_url()
             .await
-            .unwrap_or_else(|_| None)
+            .unwrap_or(None)
             .unwrap_or_default();
         let url_matches = current_url == step.url
             || current_url.trim_end_matches('/') == step.url.trim_end_matches('/');

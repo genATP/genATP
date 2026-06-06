@@ -190,27 +190,16 @@ impl CassetteRecorder {
                 } => {
                     goal.clone_from(g);
                 }
-                Event::LlmResponse {
-                    model: m,
-                    provider: _,
-                    usage: _,
-                    finish_reason: _,
-                } => {
-                    if model.is_empty() {
-                        model.clone_from(m);
-                    }
+                Event::LlmResponse { model: m, .. } if model.is_empty() => {
+                    model.clone_from(m);
                 }
                 // Capture the start URL from the first navigation action.
                 Event::ActionResult {
-                    action,
+                    action: genatp_core::action::Action::Navigate { url },
                     success: true,
-                    message: _,
-                } => {
-                    if start_url.is_empty() {
-                        if let genatp_core::action::Action::Navigate { url } = action {
-                            start_url.clone_from(url);
-                        }
-                    }
+                    ..
+                } if start_url.is_empty() => {
+                    start_url.clone_from(url);
                 }
                 _ => {}
             }
@@ -292,10 +281,10 @@ impl CassetteRecorder {
                     action: genatp_core::action::Action::Navigate { url },
                     ..
                 } => {
-                    if let Ok(parsed) = url::Url::parse(url) {
-                        if let Some(host) = parsed.host_str() {
-                            domains.insert(host.to_string());
-                        }
+                    if let Ok(parsed) = url::Url::parse(url)
+                        && let Some(host) = parsed.host_str()
+                    {
+                        domains.insert(host.to_string());
                     }
                 }
                 _ => {}

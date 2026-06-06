@@ -156,12 +156,12 @@ pub fn list_slugs(root: &Path) -> Result<Vec<String>> {
     let mut slugs = Vec::new();
     for entry in fs::read_dir(root)? {
         let entry = entry?;
-        if entry.file_type()?.is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                // Only include dirs that have a versions/ subdirectory.
-                if entry.path().join("versions").is_dir() {
-                    slugs.push(name.to_string());
-                }
+        if entry.file_type()?.is_dir()
+            && let Some(name) = entry.file_name().to_str()
+        {
+            // Only include dirs that have a versions/ subdirectory.
+            if entry.path().join("versions").is_dir() {
+                slugs.push(name.to_string());
             }
         }
     }
@@ -185,10 +185,10 @@ pub fn list_versions(root: &Path, slug: &str) -> Result<Vec<String>> {
     let mut versions = Vec::new();
     for entry in fs::read_dir(&versions_dir)? {
         let entry = entry?;
-        if let Some(name) = entry.file_name().to_str() {
-            if name.ends_with(&ext) {
-                versions.push(name.trim_end_matches(&ext).to_string());
-            }
+        if let Some(name) = entry.file_name().to_str()
+            && name.ends_with(&ext)
+        {
+            versions.push(name.trim_end_matches(&ext).to_string());
         }
     }
     versions.sort();

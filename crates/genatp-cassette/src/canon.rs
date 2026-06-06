@@ -87,10 +87,10 @@ mod tests {
 
     #[test]
     fn handles_null_bool_string_number() {
-        let input = serde_json::json!({"n": null, "b": true, "s": "hello", "i": 42, "f": 3.14});
+        let input = serde_json::json!({"n": null, "b": true, "s": "hello", "i": 42, "f": 42.5});
         let bytes = canonical_json(&input);
         // Keys sorted: b, f, i, n, s
-        let expected = br#"{"b":true,"f":3.14,"i":42,"n":null,"s":"hello"}"#;
+        let expected = br#"{"b":true,"f":42.5,"i":42,"n":null,"s":"hello"}"#;
         assert_eq!(bytes, expected);
     }
 
