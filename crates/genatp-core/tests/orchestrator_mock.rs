@@ -56,6 +56,10 @@ impl BrowserAdapter for MockBrowser {
         self.record(format!("press {key}"));
         Ok(())
     }
+    async fn click_coordinate(&self, x: f64, y: f64) -> Result<(), CoreError> {
+        self.record(format!("click_coordinate {x},{y}"));
+        Ok(())
+    }
     async fn scroll(&self, dx: i32, dy: i32) -> Result<(), CoreError> {
         self.record(format!("scroll {dx},{dy}"));
         Ok(())
@@ -76,6 +80,10 @@ impl BrowserAdapter for MockBrowser {
             ax("7", Some("2"), &[], "button", "Submit"),
         ];
         Ok(AccessibilityTree::from_nodes(nodes))
+    }
+
+    async fn screenshot_png(&self) -> Result<Vec<u8>, CoreError> {
+        Ok(vec![])
     }
 }
 
@@ -193,6 +201,8 @@ async fn orchestrator_runs_5_step_task_against_mocks() {
         provider: provider.clone() as Arc<dyn LlmProvider>,
         event_log: &mut log,
         snapshot_store: None,
+        policy_engine: genatp_perception::PolicyEngine::default(),
+        vision_provider: None,
     })
     .await
     .expect("must succeed");
@@ -285,6 +295,8 @@ async fn orchestrator_aborts_on_budget() {
         provider: provider as Arc<dyn LlmProvider>,
         event_log: &mut log,
         snapshot_store: None,
+        policy_engine: genatp_perception::PolicyEngine::default(),
+        vision_provider: None,
     })
     .await
     .expect_err("must abort");

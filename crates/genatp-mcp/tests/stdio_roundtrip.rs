@@ -103,7 +103,7 @@ async fn stdio_drives_every_tool_against_real_chrome() {
     // ---- tools/list -------------------------------------------------
     let resp = rpc(&mut cli_in, &mut cli_reader, 2, "tools/list", json!({})).await;
     let tools = resp["result"]["tools"].as_array().expect("tools array");
-    assert_eq!(tools.len(), 12);
+    assert_eq!(tools.len(), 13);
 
     // ---- navigate ---------------------------------------------------
     let resp = rpc(

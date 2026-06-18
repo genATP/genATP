@@ -35,11 +35,20 @@ pub trait BrowserAdapter: Send + Sync + std::fmt::Debug {
     /// Scroll the viewport by relative pixels.
     async fn scroll(&self, dx: i32, dy: i32) -> Result<(), CoreError>;
 
+    /// Click at absolute viewport coordinates (x, y). Used in vision mode
+    /// when @eN refs are unavailable.
+    async fn click_coordinate(&self, x: f64, y: f64) -> Result<(), CoreError>;
+
     /// Return the current document URL (post-redirect).
     async fn current_url(&self) -> Result<Option<String>, CoreError>;
 
     /// Fetch a fresh accessibility snapshot.
     async fn accessibility(&self) -> Result<AccessibilityTree, CoreError>;
+
+    /// Capture a full-viewport PNG screenshot. Returns raw PNG bytes.
+    /// Used in vision mode when the policy engine determines DOM
+    /// accessibility is insufficient.
+    async fn screenshot_png(&self) -> Result<Vec<u8>, CoreError>;
 }
 
 /// Map an `@eN` ref to its CDP node id using the perception ref→node table
@@ -97,6 +106,10 @@ impl<B: BrowserAdapter> ActionDispatcher<B> {
                 let nid = ref_to_node_id(r#ref, ref_to_node)?;
                 self.browser.click_node(nid).await?;
                 ok(&action, "clicked")
+            }
+            Action::ClickCoordinate { x, y } => {
+                self.browser.click_coordinate(*x, *y).await?;
+                ok(&action, "clicked_coordinate")
             }
             Action::Fill { r#ref, value } => {
                 let nid = ref_to_node_id(r#ref, ref_to_node)?;
@@ -160,6 +173,13 @@ mod tests {
             self.events.lock().unwrap().push(format!("press {key}"));
             Ok(())
         }
+        async fn click_coordinate(&self, x: f64, y: f64) -> Result<(), CoreError> {
+            self.events
+                .lock()
+                .unwrap()
+                .push(format!("click_coordinate {x},{y}"));
+            Ok(())
+        }
         async fn scroll(&self, dx: i32, dy: i32) -> Result<(), CoreError> {
             self.events
                 .lock()
@@ -172,6 +192,9 @@ mod tests {
         }
         async fn accessibility(&self) -> Result<AccessibilityTree, CoreError> {
             Ok(AccessibilityTree::from_nodes(vec![]))
+        }
+        async fn screenshot_png(&self) -> Result<Vec<u8>, CoreError> {
+            Ok(vec![])
         }
     }
 

@@ -1,19 +1,20 @@
 //! `genatp-mcp` — Model Context Protocol server.
 //!
-//! genATP's **first public release surface** (v0.1.0). Exposes nine
+//! genATP's MCP server surface (v0.7.1). Exposes 13
 //! browser-control tools over JSON-RPC 2.0:
 //!
 //! | Tool          | Purpose                                                 |
 //! | ------------- | ------------------------------------------------------- |
-//! | `navigate`    | Drive a tab to a URL                                    |
-//! | `snapshot`    | Capture a compressed accessibility tree                 |
-//! | `click`       | Click an element by `@eN` ref                           |
-//! | `fill`        | Type into a text input by `@eN` ref                     |
-//! | `extract`     | Read visible text (optionally filtered)                 |
-//! | `scroll`      | Scroll the viewport                                     |
-//! | `screenshot`  | Capture a PNG screenshot                                |
-//! | `get_url`     | Return the current page URL                             |
-//! | `go_back`     | Navigate back in history                                |
+//! | `navigate`          | Drive a tab to a URL                                    |
+//! | `click_coordinate`  | Click at viewport-relative coordinates                  |
+//! | `snapshot`          | Capture a compressed accessibility tree                 |
+//! | `click`             | Click an element by `@eN` ref                           |
+//! | `fill`              | Type into a text input by `@eN` ref                     |
+//! | `extract`           | Read visible text (optionally filtered)                 |
+//! | `scroll`            | Scroll the viewport                                     |
+//! | `screenshot`        | Capture a PNG screenshot                                |
+//! | `get_url`           | Return the current page URL                             |
+//! | `go_back`           | Navigate back in history                                |
 //!
 //! # Architecture
 //!

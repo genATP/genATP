@@ -28,12 +28,15 @@
 //! let task = Task::new("demo", "Click the primary button.", "https://example.com", "mock");
 //! let provider = Arc::new(MockProvider::with_reply("done"));
 //! let mut log = EventLog::in_memory();
+//! use genatp_perception::PolicyEngine;
 //! let outcome = orchestrator::run(orchestrator::OrchestratorConfig {
 //!     task,
 //!     browser: PageAdapter::new(page),
 //!     provider,
 //!     event_log: &mut log,
 //!     snapshot_store: None,
+//!     policy_engine: PolicyEngine::default(),
+//!     vision_provider: None,
 //! })
 //! .await?;
 //! # let _ = outcome;

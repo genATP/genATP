@@ -139,6 +139,16 @@ impl BrowserAdapter for RunnerBrowser {
         Ok(())
     }
 
+    async fn click_coordinate(&self, x: f64, y: f64) -> std::result::Result<(), CoreError> {
+        self.handle
+            .page()
+            .await
+            .map_err(|e| CoreError::Browser(e.to_string()))?
+            .click_coordinate(x, y)
+            .await?;
+        Ok(())
+    }
+
     async fn scroll(&self, dx: i32, dy: i32) -> std::result::Result<(), CoreError> {
         self.handle
             .page()
@@ -166,6 +176,16 @@ impl BrowserAdapter for RunnerBrowser {
             .await
             .map_err(|e| CoreError::Browser(e.to_string()))?
             .accessibility_tree()
+            .await?)
+    }
+
+    async fn screenshot_png(&self) -> std::result::Result<Vec<u8>, CoreError> {
+        Ok(self
+            .handle
+            .page()
+            .await
+            .map_err(|e| CoreError::Browser(e.to_string()))?
+            .screenshot_png()
             .await?)
     }
 }

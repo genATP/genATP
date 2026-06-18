@@ -14,13 +14,15 @@ use crate::error::CoreError;
 
 /// Action variants. Serialised with `tag = "name"` so they look like:
 /// `{"name": "click", "ref": "@e3"}`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "name", rename_all = "snake_case")]
 pub enum Action {
     /// Navigate to a URL.
     Navigate { url: String },
-    /// Click an interactive element identified by its `@eN` ref.
+    /// Click an interactive element identified by its `@eN` ref (DOM mode).
     Click { r#ref: String },
+    /// Click at absolute viewport coordinates `(x, y)` (vision mode).
+    ClickCoordinate { x: f64, y: f64 },
     /// Fill a text field by ref.
     Fill { r#ref: String, value: String },
     /// Press a single key on the focused element (or page if nothing focused).
@@ -40,6 +42,7 @@ impl Action {
         match self {
             Self::Navigate { .. } => "navigate",
             Self::Click { .. } => "click",
+            Self::ClickCoordinate { .. } => "click_coordinate",
             Self::Fill { .. } => "fill",
             Self::Press { .. } => "press",
             Self::Scroll { .. } => "scroll",
@@ -138,6 +141,19 @@ impl Action {
                 }),
             ),
             ToolDefinition::new(
+                "click_coordinate",
+                "Click at absolute viewport coordinates (x, y). Use this when the page is in vision mode and no @eN refs are available.",
+                serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "x": { "type": "number", "description": "Viewport X coordinate in CSS pixels" },
+                        "y": { "type": "number", "description": "Viewport Y coordinate in CSS pixels" }
+                    },
+                    "required": ["x", "y"],
+                    "additionalProperties": false
+                }),
+            ),
+            ToolDefinition::new(
                 "finish",
                 "Signal that the task is complete. Provide a final summary string.",
                 serde_json::json!({
@@ -212,7 +228,14 @@ mod tests {
         let defs = Action::default_tool_definitions();
         let names: std::collections::HashSet<_> = defs.iter().map(|d| d.name.as_str()).collect();
         for variant in [
-            "navigate", "click", "fill", "press", "scroll", "wait", "finish",
+            "navigate",
+            "click",
+            "click_coordinate",
+            "fill",
+            "press",
+            "scroll",
+            "wait",
+            "finish",
         ] {
             assert!(
                 names.contains(variant),

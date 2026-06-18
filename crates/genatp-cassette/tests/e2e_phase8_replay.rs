@@ -57,6 +57,13 @@ impl BrowserAdapter for MockBrowser {
         self.events.lock().unwrap().push(format!("press {key}"));
         Ok(())
     }
+    async fn click_coordinate(&self, x: f64, y: f64) -> Result<(), CoreError> {
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("click_coordinate {x},{y}"));
+        Ok(())
+    }
     async fn scroll(&self, dx: i32, dy: i32) -> Result<(), CoreError> {
         self.events
             .lock()
@@ -69,6 +76,9 @@ impl BrowserAdapter for MockBrowser {
     }
     async fn accessibility(&self) -> Result<genatp_browser::AccessibilityTree, CoreError> {
         Ok(genatp_browser::AccessibilityTree::from_nodes(vec![]))
+    }
+    async fn screenshot_png(&self) -> Result<Vec<u8>, CoreError> {
+        Ok(vec![])
     }
 }
 

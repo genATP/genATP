@@ -439,6 +439,41 @@ impl Page {
         Ok(true)
     }
 
+    /// Click at absolute viewport coordinates (x, y). Uses CDP
+    /// `Input.dispatchMouseEvent` to simulate a real mouse click.
+    ///
+    /// This is the primary action for vision-mode operation where @eN
+    /// refs are unavailable.
+    ///
+    /// # Errors
+    /// Returns [`BrowserError::Cdp`] if the CDP command fails.
+    pub async fn click_coordinate(&self, x: f64, y: f64) -> Result<()> {
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
+        };
+
+        for event_type in [
+            DispatchMouseEventType::MousePressed,
+            DispatchMouseEventType::MouseReleased,
+        ] {
+            let params = DispatchMouseEventParams::builder()
+                .r#type(event_type)
+                .x(x)
+                .y(y)
+                .button(MouseButton::Left)
+                .click_count(1)
+                .build()
+                .map_err(|e| BrowserError::Cdp(format!("click_coordinate builder: {e}")))?;
+
+            match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(err)) => return Err(BrowserError::Cdp(err.to_string())),
+                Err(_) => return Err(BrowserError::Timeout(self.op_timeout)),
+            }
+        }
+        Ok(())
+    }
+
     /// Scroll the viewport by relative pixels via `window.scrollBy`.
     ///
     /// # Errors

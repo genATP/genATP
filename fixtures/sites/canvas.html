@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>genATP Fixture — Canvas Dashboard</title>
+    <meta name="description" content="Phase 12 fixture page. Canvas-based dashboard for testing vision mode fallback.">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; }
+        h1 { color: #333; font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .controls { margin: 1rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        button { padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; border: 1px solid #999; border-radius: 4px; background: #fff; }
+        button:hover { background: #e0e0e0; }
+        button.active { background: #4CAF50; color: white; border-color: #388E3C; }
+        canvas { border: 1px solid #ccc; background: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: block; margin: 1rem 0; }
+        #status { margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; font-size: 0.9rem; }
+        .controls label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.9rem; }
+        .controls input[type="color"] { width: 32px; height: 32px; border: none; cursor: pointer; padding: 0; }
+        nav { margin-bottom: 1rem; }
+        nav a { color: #1976D2; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+        nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/hello.html">Home</a>
+        <a href="/form.html">Form</a>
+        <a href="/canvas.html" class="active">Canvas Dashboard</a>
+    </nav>
+
+    <h1>📊 Canvas Dashboard</h1>
+    <p>This page renders its content inside a <code>&lt;canvas&gt;</code> element.
+       The a11y tree is sparse — vision mode fallback is required.</p>
+
+    <div class="controls">
+        <button id="draw-bar" data-testid="draw-bar">📊 Bar Chart</button>
+        <button id="draw-line" data-testid="draw-line">📈 Line Chart</button>
+        <button id="draw-pie" data-testid="draw-pie" class="active">🥧 Pie Chart</button>
+        <button id="draw-clear" data-testid="draw-clear">🗑️ Clear</button>
+        <label>
+            <span>Color:</span>
+            <input type="color" id="color-picker" value="#4CAF50" data-testid="color-picker">
+        </label>
+    </div>
+
+    <canvas id="main-canvas" width="700" height="400" data-testid="main-canvas"></canvas>
+
+    <div id="status" data-testid="status">
+        Current chart: <strong id="chart-name" data-testid="chart-name">Pie Chart</strong> —
+        <span id="chart-description" data-testid="chart-description">Sales distribution by region</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const chartName = document.getElementById('chart-name');
+        const chartDesc = document.getElementById('chart-description');
+        const colorPicker = document.getElementById('color-picker');
+
+        const W = canvas.width;
+        const H = canvas.height;
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#e8e8e8';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= W; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, H);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= H; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(W, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawBarChart(color) {
+            clearCanvas();
+            drawGrid();
+            const data = [120, 95, 180, 75, 140, 110];
+            const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            const barW = 70;
+            const gap = 25;
+            const startX = 60;
+            const maxH = 280;
+            const baseY = 340;
+
+            ctx.font = '12px system-ui';
+            ctx.fillStyle = '#333';
+
+            data.forEach((v, i) => {
+                const x = startX + i * (barW + gap);
+                const h = (v / 200) * maxH;
+                ctx.fillStyle = color;
+                ctx.fillRect(x, baseY - h, barW, h);
+                ctx.fillStyle = '#333';
+                ctx.fillText(labels[i], x + 15, baseY + 18);
+                ctx.fillText(String(v), x + 20, baseY - h - 8);
+            });
+
+            ctx.fillStyle = '#333';
+            ctx.font = '14px system-ui bold';
+            ctx.fillText('Monthly Revenue (Jan-Jun)', 220, 30);
+        }
+
+        function drawLineChart(color) {
+            clearCanvas();
+            drawGrid();
+            const data = [65, 78, 92, 88, 105, 130];
+            const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const startX = 60;
+            const startY = 310;
+            const stepX = 100;
+            const scale = 2.0;
+            const points = data.map((v, i) => ({
+                x: startX + i * stepX,
+                y: startY - v * scale
+            }));
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            points.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+
+            points.forEach((p, i) => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+
+            ctx.font = '12px system-ui';
+            ctx.fillStyle = '#333';
+            data.forEach((v, i) => {
+                const x = startX + i * stepX;
+                ctx.fillText(labels[i], x - 10, startY + 20);
+                ctx.fillText(String(v), x - 10, startY - v * scale - 10);
+            });
+
+            ctx.font = '14px system-ui bold';
+            ctx.fillText('Weekly Active Users', 250, 30);
+        }
+
+        function drawPieChart(color) {
+            clearCanvas();
+            const cx = W / 2;
+            const cy = H / 2;
+            const radius = 140;
+            const data = [
+                { label: 'NA', value: 35, color: '#4CAF50' },
+                { label: 'EU', value: 28, color: '#2196F3' },
+                { label: 'APAC', value: 20, color: '#FF9800' },
+                { label: 'LATAM', value: 12, color: '#9C27B0' },
+                { label: 'AFR', value: 5, color: '#f44336' },
+            ];
+            const total = data.reduce((s, d) => s + d.value, 0);
+            let startAngle = -Math.PI / 2;
+
+            data.forEach(d => {
+                const sliceAngle = (d.value / total) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = d.color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                const midAngle = startAngle + sliceAngle / 2;
+                const labelR = radius * 0.65;
+                const lx = cx + Math.cos(midAngle) * labelR;
+                const ly = cy + Math.sin(midAngle) * labelR;
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px system-ui';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${d.label} ${d.value}%`, lx, ly);
+
+                startAngle += sliceAngle;
+            });
+
+            ctx.fillStyle = '#333';
+            ctx.font = '14px system-ui bold';
+            ctx.textAlign = 'center';
+            ctx.fillText('Sales Distribution by Region', cx, 30);
+        }
+
+        // Button handlers
+        document.getElementById('draw-bar').addEventListener('click', () => {
+            drawBarChart(colorPicker.value);
+            chartName.textContent = 'Bar Chart';
+            chartDesc.textContent = 'Monthly revenue data';
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('draw-bar').classList.add('active');
+        });
+
+        document.getElementById('draw-line').addEventListener('click', () => {
+            drawLineChart(colorPicker.value);
+            chartName.textContent = 'Line Chart';
+            chartDesc.textContent = 'Weekly active user trends';
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('draw-line').classList.add('active');
+        });
+
+        document.getElementById('draw-pie').addEventListener('click', () => {
+            drawPieChart(colorPicker.value);
+            chartName.textContent = 'Pie Chart';
+            chartDesc.textContent = 'Sales distribution by region';
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('draw-pie').classList.add('active');
+        });
+
+        document.getElementById('draw-clear').addEventListener('click', () => {
+            clearCanvas();
+            chartName.textContent = 'Cleared';
+            chartDesc.textContent = 'Canvas has been cleared';
+            document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+            document.getElementById('draw-clear').classList.add('active');
+        });
+
+        colorPicker.addEventListener('input', () => {
+            const active = document.querySelector('.controls .active');
+            if (active) active.click();
+        });
+
+        // Initial render
+        drawPieChart(colorPicker.value);
+    </script>
+</body>
+</html>

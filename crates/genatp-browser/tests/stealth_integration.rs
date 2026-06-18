@@ -17,8 +17,6 @@
 //! - fingerprintjs/botd: ≥ 90% score
 //! - creepjs: realistic-score band (documented per profile)
 
-mod common;
-
 use std::sync::LazyLock;
 use std::time::Duration;
 

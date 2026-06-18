@@ -281,6 +281,15 @@ impl CassetteReplayer {
                         reason: format!("press key failed: {e}"),
                     })?;
             }
+            Action::ClickCoordinate { x, y } => {
+                adapter.click_coordinate(*x, *y).await.map_err(|e| {
+                    CassetteError::ReplayFailed {
+                        step: step.seq,
+                        action: action.clone(),
+                        reason: format!("click_coordinate ({x},{y}) failed: {e}"),
+                    }
+                })?;
+            }
             Action::Scroll { dx, dy } => {
                 adapter
                     .scroll(*dx, *dy)
@@ -392,6 +401,14 @@ mod tests {
             Ok(())
         }
 
+        async fn click_coordinate(&self, x: f64, y: f64) -> std::result::Result<(), CoreError> {
+            self.events
+                .lock()
+                .unwrap()
+                .push(format!("click_coordinate {x},{y}"));
+            Ok(())
+        }
+
         async fn scroll(&self, dx: i32, dy: i32) -> std::result::Result<(), CoreError> {
             self.events
                 .lock()
@@ -406,6 +423,10 @@ mod tests {
 
         async fn accessibility(&self) -> std::result::Result<AccessibilityTree, CoreError> {
             Ok(AccessibilityTree::from_nodes(vec![]))
+        }
+
+        async fn screenshot_png(&self) -> std::result::Result<Vec<u8>, CoreError> {
+            Ok(vec![])
         }
     }
 

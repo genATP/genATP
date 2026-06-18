@@ -378,6 +378,8 @@ fn run_agent(
             provider: provider_arc,
             event_log: &mut log,
             snapshot_store: None,
+            policy_engine: genatp_perception::PolicyEngine::default(),
+            vision_provider: None,
         })
         .await;
 

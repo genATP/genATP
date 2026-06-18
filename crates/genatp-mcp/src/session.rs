@@ -328,6 +328,19 @@ impl McpSession {
         })
     }
 
+    /// Click at absolute viewport coordinates. Used in vision mode
+    /// when @eN refs are unavailable.
+    ///
+    /// # Errors
+    /// Returns [`McpError::Browser`] on CDP failures.
+    pub async fn click_coordinate(&self, x: f64, y: f64) -> Result<()> {
+        let mut inner = self.inner.lock().await;
+        Self::ensure_page(&mut inner).await?;
+        let page = inner.page.as_ref().expect("page acquired").page();
+        page.click_coordinate(x, y).await?;
+        Ok(())
+    }
+
     /// Click an element previously identified in the snapshot.
     ///
     /// # Errors

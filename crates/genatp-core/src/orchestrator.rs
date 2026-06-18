@@ -5,7 +5,7 @@
 //! ```text
 //!   navigate(start_url)
 //!   loop {
-//!     snapshot = perception.compress(browser.accessibility())
+//!     snapshot = perception.compress(browser.accessibility()())
 //!     response = llm.complete(system + history + snapshot + tools)
 //!     budget.record_step(response.usage)
 //!     for tool_call in response.tool_calls {
@@ -25,14 +25,27 @@
 //! The orchestrator wraps the LLM call in [`RetryPolicy`] for transient
 //! errors, and emits an [`Event`] to the [`EventLog`] for every meaningful
 //! action, so the Phase 13 debugger can replay the entire run later.
+//!
+//! ## Phase 12 — Perception Policy (DOM/Vision auto-switch)
+//!
+//! On each iteration the orchestrator:
+//! 1. Fetches the accessibility tree (always — needed for policy decision).
+//! 2. Calls [`PolicyEngine::decide`] to choose DOM or Vision mode.
+//! 3. **DOM mode**: Compresses the tree as before (400–800 tokens).
+//! 4. **Vision mode**: Captures a screenshot and delegates to the
+//!    [`VisionProvider`] (~12k tokens). Falls back to DOM on any error.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use genatp_llm::{CompletionRequest, FinishReason, LlmProvider, Message};
+use genatp_perception::policy::{PerceptionMode, PolicyDecision};
 use genatp_perception::snapshot::Ref;
-use genatp_perception::{CompressOptions, CompressedSnapshot, RefMap, SnapshotStore, compress};
+use genatp_perception::vision::VisionProvider;
+use genatp_perception::{
+    CompressOptions, CompressedSnapshot, PolicyEngine, RefMap, SnapshotStore, compress,
+};
 use tracing::{debug, info, warn};
 
 use crate::action::{Action, ActionResult};
@@ -62,6 +75,11 @@ pub struct OrchestratorConfig<'a, B> {
     pub event_log: &'a mut EventLog,
     /// Optional snapshot store to persist every snapshot to disk.
     pub snapshot_store: Option<&'a SnapshotStore>,
+    /// Phase 12 — perception policy engine for DOM/vision auto-switch.
+    pub policy_engine: PolicyEngine,
+    /// Optional vision provider for screenshot-based perception.
+    /// When `None`, the policy engine will never select Vision mode.
+    pub vision_provider: Option<Box<dyn VisionProvider>>,
 }
 
 /// Public entry point — run a single task to completion.
@@ -103,7 +121,11 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
         message: nav_result.message,
     })?;
 
+    // Phase 12 — DOM retry tracking for perception policy engine.
+    let mut dom_retry_count: u32 = 0;
+    let mut last_url: String = task.start_url.clone();
     let mut step: u32 = 0;
+
     loop {
         step += 1;
         debug!(step, "loop iteration");
@@ -118,7 +140,8 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
             return Err(CoreError::StepLimit(task.max_steps));
         }
 
-        // 1) Snapshot.
+        // ── 1) Perception: gather tree, decide mode, capture snapshot ──────
+
         let tree = cfg.browser.accessibility().await?;
         let url = cfg
             .browser
@@ -126,47 +149,42 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
             .await?
             .unwrap_or_else(|| task.start_url.clone());
         let raw = raw_tree_from_accessibility(&url, &tree);
-        let token_estimator = genatp_perception::TokenEstimator::default();
-        let snapshot: CompressedSnapshot =
-            compress(&raw, &mut ref_map, &CompressOptions::default());
-        // Build the a11y_id → backend_dom_node_id lookup. Synthetic nodes
-        // (WebArea, etc.) lack a backend id; they're silently absent from
-        // the table, which makes "click @e1" surface as InvalidAction
-        // rather than a generic Browser error.
-        let a11y_to_backend: HashMap<String, String> = tree
-            .nodes()
-            .iter()
-            .filter_map(|n| {
-                n.backend_dom_node_id
-                    .map(|b| (n.node_id.clone(), b.to_string()))
-            })
-            .collect();
-        let ref_to_node = build_ref_lookup(&raw, &mut ref_map, &a11y_to_backend);
 
-        let token_estimate = token_estimator
-            .estimate_snapshot(&snapshot)
-            .map_err(|e| CoreError::EventLog(format!("token estimate: {e}")))?
-            as usize;
-        let snapshot_hash = if let Some(store) = cfg.snapshot_store {
-            let hash = store
-                .put(&snapshot)
-                .map_err(|e| CoreError::EventLog(format!("snapshot store put: {e}")))?;
-            hash.to_hex()
-        } else {
-            String::new()
-        };
-        cfg.event_log.append(Event::Snapshot {
-            url: url.clone(),
-            snapshot_hash,
-            token_estimate,
+        // Reset retry count on URL change (new page navigation).
+        if url != last_url {
+            dom_retry_count = 0;
+            last_url = url.clone();
+        }
+
+        // Policy engine decides DOM vs Vision.
+        let decision: PolicyDecision = cfg.policy_engine.decide(&raw, dom_retry_count);
+        cfg.event_log.append(Event::PolicyDecision {
+            mode: format!("{:?}", decision.mode),
+            reason: decision.reason.clone(),
+            named_element_count: decision.named_element_count,
+            stripped_node_count: decision.stripped_node_count,
         })?;
 
-        // 2) LLM call (with retries).
-        let snapshot_msg = Message::user(format!(
-            "Current page URL: {url}\n\nAccessibility snapshot (compressed):\n```json\n{}\n```\n\nDecide the next tool call. Use `finish` when the task is done.",
-            serde_json::to_string_pretty(&snapshot).unwrap_or_default(),
-        ));
-        conversation.push(snapshot_msg);
+        // Build the snapshot message and ref-to-node table.
+        let (snapshot_msg, ref_to_node): (String, HashMap<Ref, String>) =
+            build_perception_snapshot(
+                decision.mode,
+                &raw,
+                &tree,
+                &url,
+                &mut ref_map,
+                &mut dom_retry_count,
+                &cfg.browser,
+                cfg.event_log,
+                cfg.snapshot_store,
+                cfg.vision_provider.as_deref(),
+                &task,
+            )
+            .await?;
+
+        conversation.push(Message::user(snapshot_msg));
+
+        // ── 2) LLM call (with retries) ─────────────────────────────────────
 
         let request =
             CompletionRequest::chat(&task.model, conversation.clone()).with_tools(tools.clone());
@@ -206,7 +224,8 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
         // own prior tool calls on the next iteration.
         conversation.push(response.message.clone());
 
-        // 3) Budget enforcement.
+        // ── 3) Budget enforcement ───────────────────────────────────────────
+
         match budget.record_step(response.usage) {
             BudgetCheck::Ok => {}
             BudgetCheck::Warn(dim) => {
@@ -233,7 +252,8 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
             }
         }
 
-        // 4) Dispatch any tool calls the model emitted.
+        // ── 4) Dispatch any tool calls the model emitted ────────────────────
+
         if !response.message.tool_calls.is_empty() {
             for call in &response.message.tool_calls {
                 let action = Action::from_tool_call(call)?;
@@ -293,6 +313,186 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
             return Err(CoreError::Deadline(started_at.elapsed()));
         }
     }
+}
+
+/// Build a perception snapshot message and ref-to-node lookup table.
+///
+/// In **DOM mode**: compresses the a11y tree as before.
+/// In **Vision mode**: captures a screenshot, calls the vision provider,
+/// and returns a text description. Falls back to DOM on any error.
+#[allow(clippy::too_many_arguments)]
+async fn build_perception_snapshot<B: BrowserAdapter>(
+    mode: PerceptionMode,
+    raw: &genatp_perception::raw::RawTree,
+    tree: &genatp_browser::AccessibilityTree,
+    url: &str,
+    ref_map: &mut RefMap,
+    dom_retry_count: &mut u32,
+    browser: &B,
+    event_log: &mut EventLog,
+    snapshot_store: Option<&SnapshotStore>,
+    vision_provider: Option<&dyn VisionProvider>,
+    task: &Task,
+) -> Result<(String, HashMap<Ref, String>)> {
+    match mode {
+        PerceptionMode::Dom => {
+            // Standard DOM-based accessibility compression.
+            *dom_retry_count = 0;
+            let snapshot: CompressedSnapshot = compress(raw, ref_map, &CompressOptions::default());
+            let a11y_to_backend: HashMap<String, String> = tree
+                .nodes()
+                .iter()
+                .filter_map(|n| {
+                    n.backend_dom_node_id
+                        .map(|b| (n.node_id.clone(), b.to_string()))
+                })
+                .collect();
+            let r2n = build_ref_lookup(raw, ref_map, &a11y_to_backend);
+
+            let token_estimator = genatp_perception::TokenEstimator::default();
+            let token_estimate = token_estimator
+                .estimate_snapshot(&snapshot)
+                .map_err(|e| CoreError::EventLog(format!("token estimate: {e}")))?
+                as usize;
+            let snapshot_hash = if let Some(store) = snapshot_store {
+                let hash = store
+                    .put(&snapshot)
+                    .map_err(|e| CoreError::EventLog(format!("snapshot store put: {e}")))?;
+                hash.to_hex()
+            } else {
+                String::new()
+            };
+            event_log.append(Event::Snapshot {
+                url: url.to_string(),
+                snapshot_hash,
+                token_estimate,
+            })?;
+
+            let msg = format!(
+                "Current page URL: {url}\n\nAccessibility snapshot (compressed):\n```json\n{}\n```\n\nDecide the next tool call. Use `finish` when the task is done.",
+                serde_json::to_string_pretty(&snapshot).unwrap_or_default(),
+            );
+            Ok((msg, r2n))
+        }
+
+        PerceptionMode::Vision => {
+            // Vision mode: screenshot + vision provider.
+            *dom_retry_count += 1;
+
+            // Try to capture a screenshot.
+            let png_bytes = match browser.screenshot_png().await {
+                Ok(b) => b,
+                Err(e) => {
+                    warn!("screenshot failed in vision mode: {e} — falling back to DOM");
+                    return build_dom_fallback_snapshot(
+                        raw,
+                        tree,
+                        url,
+                        ref_map,
+                        event_log,
+                        snapshot_store,
+                    )
+                    .await;
+                }
+            };
+
+            event_log.append(Event::Snapshot {
+                url: url.to_string(),
+                snapshot_hash: format!("vision-{}-bytes", png_bytes.len()),
+                token_estimate: 12_000,
+            })?;
+
+            // Try the vision provider if available.
+            if let Some(vision_provider) = vision_provider {
+                let vision_prompt = format!(
+                    "You are analyzing a web page screenshot. \
+                     The user's goal is: {goal}\n\n\
+                     Describe the page in detail, identifying all interactive elements \
+                     (buttons, links, inputs, etc.) with their approximate positions. \
+                     Note the current URL: {url}",
+                    goal = task.goal,
+                );
+
+                match vision_provider.complete(&png_bytes, &vision_prompt).await {
+                    Ok(vision_resp) => {
+                        info!(
+                            "vision mode: received {} text chars, {} actions",
+                            vision_resp.text.len(),
+                            vision_resp.actions.len()
+                        );
+                        let actions_json = serde_json::to_string(&vision_resp.actions)
+                            .unwrap_or_else(|_| "[]".into());
+                        let msg = format!(
+                            "Current page URL: {url}\n\
+                             [Vision mode — screenshot analysis]\n\n\
+                             **Page description:**\n{text}\n\n\
+                             **Detected interactive regions:**\n```json\n{actions}\n```\n\n\
+                             Use `click_coordinate` with x,y coordinates (viewport-relative) \
+                             to interact with elements. Use other tools (fill, press, scroll) \
+                             normally. Call `finish` when the task is done.",
+                            text = vision_resp.text,
+                            actions = actions_json,
+                        );
+                        // Vision mode has no @eN refs — empty ref map.
+                        Ok((msg, HashMap::new()))
+                    }
+                    Err(e) => {
+                        warn!("vision provider error: {e} — falling back to DOM");
+                        build_dom_fallback_snapshot(
+                            raw,
+                            tree,
+                            url,
+                            ref_map,
+                            event_log,
+                            snapshot_store,
+                        )
+                        .await
+                    }
+                }
+            } else {
+                warn!("policy chose Vision mode but no vision provider — falling back to DOM");
+                build_dom_fallback_snapshot(raw, tree, url, ref_map, event_log, snapshot_store)
+                    .await
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn build_dom_fallback_snapshot(
+    raw: &genatp_perception::raw::RawTree,
+    tree: &genatp_browser::AccessibilityTree,
+    url: &str,
+    ref_map: &mut RefMap,
+    event_log: &mut EventLog,
+    snapshot_store: Option<&SnapshotStore>,
+) -> Result<(String, HashMap<Ref, String>)> {
+    let _ = snapshot_store; // keep for API consistency with DOM mode
+    let snapshot: CompressedSnapshot = compress(raw, ref_map, &CompressOptions::default());
+    let a11y_to_backend: HashMap<String, String> = tree
+        .nodes()
+        .iter()
+        .filter_map(|n| {
+            n.backend_dom_node_id
+                .map(|b| (n.node_id.clone(), b.to_string()))
+        })
+        .collect();
+    let r2n = build_ref_lookup(raw, ref_map, &a11y_to_backend);
+
+    event_log.append(Event::Snapshot {
+        url: url.to_string(),
+        snapshot_hash: "dom-fallback".into(),
+        token_estimate: 400,
+    })?;
+
+    let msg = format!(
+        "Current page URL: {url}\n\
+         ⚠ Vision analysis unavailable. Falling back to DOM accessibility.\n\n\
+         Accessibility snapshot (compressed):\n```json\n{}\n```\n\n\
+         Decide the next tool call. Use `finish` when the task is done.",
+        serde_json::to_string_pretty(&snapshot).unwrap_or_default(),
+    );
+    Ok((msg, r2n))
 }
 
 fn build_initial_conversation(task: &Task) -> Vec<Message> {
@@ -380,6 +580,9 @@ impl<T: BrowserAdapter + ?Sized> BrowserAdapter for &T {
     async fn click_node(&self, node_id: &str) -> Result<()> {
         (**self).click_node(node_id).await
     }
+    async fn click_coordinate(&self, x: f64, y: f64) -> Result<()> {
+        (**self).click_coordinate(x, y).await
+    }
     async fn fill_node(&self, node_id: &str, value: &str) -> Result<()> {
         (**self).fill_node(node_id, value).await
     }
@@ -394,5 +597,8 @@ impl<T: BrowserAdapter + ?Sized> BrowserAdapter for &T {
     }
     async fn accessibility(&self) -> Result<genatp_browser::AccessibilityTree> {
         (**self).accessibility().await
+    }
+    async fn screenshot_png(&self) -> Result<Vec<u8>> {
+        (**self).screenshot_png().await
     }
 }

@@ -75,6 +75,13 @@ pub enum Event {
         dimension: String,
         spend: BudgetSpend,
     },
+    /// Perception policy decision (Phase 12).
+    PolicyDecision {
+        mode: String,
+        reason: String,
+        named_element_count: usize,
+        stripped_node_count: usize,
+    },
     /// Run finished — `outcome` is `"success"`, `"failure"`, or `"aborted"`.
     RunFinished {
         outcome: String,

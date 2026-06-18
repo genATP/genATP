@@ -1,4 +1,4 @@
-//! The nine MCP tools exposed by genATP v0.1.0.
+//! The 13 MCP tools exposed by genATP v0.7.1.
 //!
 //! Each tool consists of:
 //!   1. A stable name + description.
@@ -34,6 +34,25 @@ pub fn descriptors() -> Vec<ToolDescriptor> {
                         "type": "string",
                         "description": "Absolute URL (must start with http:// or https://).",
                         "format": "uri"
+                    }
+                }
+            }),
+        },
+        ToolDescriptor {
+            name: "click_coordinate".into(),
+            description: "Click at a viewport-relative coordinate (x, y). Use this when a vision analysis returned bounding boxes rather than @eN refs — e.g. on canvas or shadow-DOM pages where the accessibility tree is sparse. Coordinates are viewport-relative CSS pixels.".into(),
+            input_schema: json!({
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["x", "y"],
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "Viewport-relative X coordinate in CSS pixels."
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Viewport-relative Y coordinate in CSS pixels."
                     }
                 }
             }),
@@ -207,6 +226,12 @@ struct FillArgs {
     value: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ClickCoordinateArgs {
+    x: f64,
+    y: f64,
+}
+
 #[derive(Debug, Deserialize, Default)]
 struct ScrollArgs {
     #[serde(default)]
@@ -257,7 +282,7 @@ fn text_err(text: impl Into<String>) -> ToolsCallResult {
 /// via the [`McpError`] return.
 ///
 /// # Errors
-/// - [`McpError::UnknownTool`] if `name` isn't one of the nine.
+/// - [`McpError::UnknownTool`] if `name` isn't one of the 13.
 /// - [`McpError::InvalidParams`] if `arguments` fails schema validation.
 pub async fn dispatch(
     session: &McpSession,
@@ -310,6 +335,15 @@ pub async fn dispatch(
             match session.scroll(a.dx, a.dy).await {
                 Ok(()) => Ok(text_ok(format!("scrolled by ({}, {})", a.dx, a.dy))),
                 Err(McpError::Browser(e)) => Ok(text_err(format!("scroll failed: {e}"))),
+                Err(e) => Err(e),
+            }
+        }
+        "click_coordinate" => {
+            let a: ClickCoordinateArgs = parse_args(arguments, name)?;
+            match session.click_coordinate(a.x, a.y).await {
+                Ok(()) => Ok(text_ok(format!("clicked at ({}, {})", a.x, a.y))),
+                Err(McpError::ToolFailed(m)) => Ok(text_err(m)),
+                Err(McpError::Browser(e)) => Ok(text_err(format!("click_coordinate failed: {e}"))),
                 Err(e) => Err(e),
             }
         }
@@ -413,14 +447,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn descriptors_emit_twelve_stable_tools() {
+    fn descriptors_emit_thirteen_stable_tools() {
         let d = descriptors();
-        assert_eq!(d.len(), 12);
+        assert_eq!(d.len(), 13);
         let names: Vec<&str> = d.iter().map(|t| t.name.as_str()).collect();
         assert_eq!(
             names,
             [
                 "navigate",
+                "click_coordinate",
                 "snapshot",
                 "click",
                 "fill",

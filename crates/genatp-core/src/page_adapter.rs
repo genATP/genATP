@@ -57,6 +57,11 @@ impl BrowserAdapter for PageAdapter {
         Ok(())
     }
 
+    async fn click_coordinate(&self, x: f64, y: f64) -> Result<(), CoreError> {
+        self.page.click_coordinate(x, y).await?;
+        Ok(())
+    }
+
     async fn scroll(&self, dx: i32, dy: i32) -> Result<(), CoreError> {
         self.page.scroll_by(dx, dy).await?;
         Ok(())
@@ -68,5 +73,9 @@ impl BrowserAdapter for PageAdapter {
 
     async fn accessibility(&self) -> Result<AccessibilityTree, CoreError> {
         Ok(self.page.accessibility_tree().await?)
+    }
+
+    async fn screenshot_png(&self) -> Result<Vec<u8>, CoreError> {
+        Ok(self.page.screenshot_png().await?)
     }
 }

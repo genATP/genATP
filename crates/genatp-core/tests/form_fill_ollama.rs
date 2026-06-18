@@ -117,6 +117,8 @@ async fn ollama_drives_form_fill_to_completion() {
         provider,
         event_log: &mut log,
         snapshot_store: None,
+        policy_engine: genatp_perception::PolicyEngine::default(),
+        vision_provider: None,
     })
     .await
     .expect("orchestrator should finish (success or controlled abort)");

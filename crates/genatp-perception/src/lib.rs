@@ -57,6 +57,7 @@
 pub mod compress;
 pub mod diff;
 pub mod error;
+pub mod policy;
 pub mod raw;
 pub mod refs;
 pub mod snapshot;
@@ -68,6 +69,7 @@ pub mod vision;
 pub use compress::{CompressOptions, compress};
 pub use diff::{Op, Patch, apply, diff};
 pub use error::{PerceptionError, Result};
+pub use policy::{PerceptionMode, PolicyConfig, PolicyDecision, PolicyEngine};
 pub use raw::{RawNode, RawProperty, RawTree};
 pub use refs::RefMap;
 pub use snapshot::{CompressedNode, CompressedSnapshot, NodeFlags, Ref};
