@@ -92,7 +92,7 @@ base64 = "0.22"
 # `ring` here on purpose — fewer audit surfaces, all pure-Rust, plays
 # nicely with `forbid(unsafe_code)`.
 aes-gcm = "0.10"
-hkdf = "0.12"
+hkdf = "0.13"
 sha2 = "0.10"
 argon2 = "0.5"
 zeroize = { version = "1", features = ["derive"] }
