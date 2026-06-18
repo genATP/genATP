@@ -1,0 +1,21 @@
+# NAPI-RS generated artifacts
+js/index.js
+js/index.d.ts
+*.node
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+target/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

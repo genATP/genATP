@@ -1,6 +1,6 @@
 {
   "name": "genatp",
-  "version": "0.0.1",
+  "version": "0.6.0",
   "description": "TypeScript/Node SDK for genATP — the unified web-access layer for AI agents.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -14,9 +14,48 @@
     "directory": "bindings/node"
   },
   "homepage": "https://genatp.dev",
-  "comments": [
-    "Phase 0 placeholder. Phase 10 fills in NAPI-RS build scripts, prebuild matrix,",
-    "and triple-specific .node binaries. Do not publish before Phase 10."
+  "keywords": [
+    "agent",
+    "browser-automation",
+    "llm",
+    "mcp",
+    "webvoyager",
+    "napi-rs"
   ],
-  "private": true
+  "napi": {
+    "name": "genatp-node",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "aarch64-unknown-linux-gnu",
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc"
+      ]
+    }
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "universal": "napi universal",
+    "version": "napi version",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0",
+    "vitest": "^1.6.0",
+    "typescript": "^5.4.0"
+  },
+  "optionalDependencies": {
+    "genatp-node-win32-x64-msvc": "0.6.0",
+    "genatp-node-darwin-x64": "0.6.0",
+    "genatp-node-darwin-arm64": "0.6.0",
+    "genatp-node-linux-x64-gnu": "0.6.0",
+    "genatp-node-linux-arm64-gnu": "0.6.0"
+  },
+  "private": false
 }

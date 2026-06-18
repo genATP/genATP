@@ -1,0 +1,21 @@
+# Rust source
+Cargo.toml
+Cargo.lock
+build.rs
+src/
+target/
+
+# JS build artifacts
+node_modules/
+__test__/
+examples/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

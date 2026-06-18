@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": false,
+    "allowJs": true,
+    "checkJs": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "paths": {
+      "genatp": ["./index.d.ts"]
+    }
+  },
+  "include": [
+    "*.js",
+    "*.d.ts",
+    "agent.js",
+    "agent.d.ts",
+    "browser.js",
+    "browser.d.ts",
+    "types.js",
+    "types.d.ts",
+    "js/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "target",
+    "__test__",
+    "examples"
+  ]
+}

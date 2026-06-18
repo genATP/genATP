@@ -1,6 +1,6 @@
 [package]
 name = "genatp-node"
-description = "TypeScript/Node SDK bindings (NAPI-RS). Phase 10 implementation. Phase 0 stub."
+description = "TypeScript/Node SDK bindings (NAPI-RS). Phase 10 (v0.6.0)."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -11,12 +11,36 @@ homepage.workspace = true
 publish.workspace = true
 
 [lib]
-# Phase 0: plain rlib so workspace builds without NAPI tooling in CI.
-# Phase 10 swaps to `crate-type = ["cdylib"]` and adds napi-derive.
 name = "genatp_node"
 path = "src/lib.rs"
+crate-type = ["cdylib"]
 
 [lints]
 workspace = true
 
 [dependencies]
+# NAPI-RS — native Node.js addon framework.
+napi = { version = "2", features = ["async", "serde-json"] }
+napi-derive = "2"
+# Async runtime — needed for the orchestrator and MCP session.
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+
+# Internal crates
+genatp-core = { path = "../../crates/genatp-core" }
+genatp-llm = { path = "../../crates/genatp-llm" }
+genatp-browser = { path = "../../crates/genatp-browser" }
+genatp-perception = { path = "../../crates/genatp-perception" }
+genatp-mcp = { path = "../../crates/genatp-mcp" }
+
+[build-dependencies]
+napi-build = "2"
