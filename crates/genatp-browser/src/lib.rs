@@ -19,8 +19,11 @@
 
 pub mod cdp;
 pub mod error;
+pub mod input;
 pub mod launch;
 pub mod pool;
+pub mod stealth;
+pub mod stealth_profiles;
 pub mod storage;
 
 use std::time::Duration;
@@ -33,6 +36,7 @@ pub use crate::cdp::{AccessibilityTree, AxNodeJson, AxPropertyJson, Page};
 pub use crate::error::{BrowserError, Result};
 pub use crate::launch::LaunchOptions;
 pub use crate::pool::{BrowserPool, PoolConfig};
+pub use crate::stealth::{FingerprintPool, FingerprintProfile, StealthConfig};
 
 /// Returns this crate's package version.
 #[must_use]

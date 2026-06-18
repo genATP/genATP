@@ -17,6 +17,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::cdp::Page;
 use crate::error::{BrowserError, Result};
 use crate::launch::LaunchOptions;
+use crate::stealth::StealthConfig;
 use crate::{BrowserHandle, launch};
 
 type SharedSemaphore = Arc<Semaphore>;
@@ -25,7 +26,6 @@ type SharedSemaphore = Arc<Semaphore>;
 const DEFAULT_MAX_CONCURRENCY: usize = 4;
 const DEFAULT_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
-
 /// Configuration for a [`BrowserPool`].
 #[derive(Debug, Clone)]
 pub struct PoolConfig {
@@ -38,6 +38,8 @@ pub struct PoolConfig {
     pub shutdown_grace: Duration,
     /// Launch options used the first time a Chrome instance is needed.
     pub launch: LaunchOptions,
+    /// Stealth configuration applied to every new page.
+    pub stealth: StealthConfig,
 }
 
 impl Default for PoolConfig {
@@ -47,6 +49,7 @@ impl Default for PoolConfig {
             acquire_timeout: DEFAULT_ACQUIRE_TIMEOUT,
             shutdown_grace: DEFAULT_SHUTDOWN_GRACE,
             launch: LaunchOptions::default(),
+            stealth: StealthConfig::default(),
         }
     }
 }
@@ -65,6 +68,20 @@ impl PoolConfig {
         self.launch = launch;
         self
     }
+
+    /// Override stealth configuration.
+    #[must_use]
+    pub fn stealth(mut self, config: StealthConfig) -> Self {
+        self.stealth = config;
+        self
+    }
+
+    /// Disable stealth entirely.
+    #[must_use]
+    pub fn disable_stealth(mut self) -> Self {
+        self.stealth = StealthConfig::disabled();
+        self
+    }
 }
 
 /// A pool of browser pages backed by a single Chrome instance.
@@ -81,6 +98,10 @@ struct Inner {
     /// Chrome is launched lazily on first `acquire` so the pool can be
     /// constructed cheaply (e.g. in tests that may never call acquire).
     handle: Mutex<Option<BrowserHandle>>,
+    /// Shared stealth configuration — held in a Mutex so the fingerprint
+    /// pool state (round-robin index) persists across page acquires.
+    /// Without this, every page would start at fingerprint profile 0.
+    stealth: tokio::sync::Mutex<StealthConfig>,
 }
 
 impl BrowserPool {
@@ -88,11 +109,13 @@ impl BrowserPool {
     #[must_use]
     pub fn new(config: PoolConfig) -> Self {
         let permits = Arc::new(Semaphore::new(config.max_concurrency));
+        let stealth = tokio::sync::Mutex::new(config.stealth.clone());
         Self {
             inner: Arc::new(Inner {
                 config,
                 permits,
                 handle: Mutex::new(None),
+                stealth,
             }),
         }
     }
@@ -157,7 +180,16 @@ impl BrowserPool {
             *guard = Some(launch(self.inner.config.launch.clone()).await?);
         }
         let handle = guard.as_ref().expect("handle was just set if it was None");
-        handle.new_page().await
+        let page = handle.new_page().await?;
+        // Apply stealth configuration to the new page, rotating the shared
+        // fingerprint pool so each page gets a different profile.
+        let mut stealth = self.inner.stealth.lock().await;
+        if let Err(e) = page.apply_stealth(&mut *stealth).await {
+            tracing::warn!(target = "genatp::stealth", "stealth injection failed: {e}");
+            // Non-fatal: page works without stealth, just not as hardened.
+        }
+        drop(stealth);
+        Ok(page)
     }
 
     /// Force-kill the current Chrome instance and re-launch a fresh one.

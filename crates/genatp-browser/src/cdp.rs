@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::error::{BrowserError, Result};
+use crate::stealth::StealthConfig;
 
 /// Default per-operation timeout for navigation and CDP commands.
 pub const DEFAULT_OP_TIMEOUT: Duration = Duration::from_secs(20);
@@ -264,6 +265,126 @@ impl Page {
             }
         }
         Ok(())
+    }
+
+    /// Inject stealth fingerprint override scripts into the current page.
+    /// Uses `Runtime.evaluate` to inject the script on the current blank
+    /// page (`about:blank`) **before** the target URL is navigated to.
+    /// This ensures overrides take effect before any page-level JS runs.
+    ///
+    /// **Note:** `Runtime.evaluate` is used rather than
+    /// `Page.addScriptToEvaluateOnNewDocument` because the latter is not
+    /// directly exposed by the chromiumoxide version we depend on. The
+    /// practical effect is the same when called on the blank `about:blank`
+    /// page before navigation — the overrides persist through the subsequent
+    /// same-origin navigation. Cross-origin navigations and dynamically
+    /// created iframes are not covered.
+    ///
+    /// # Errors
+    /// Returns [`BrowserError::Cdp`] if the CDP command fails.
+    pub async fn inject_stealth(&self, script: &str) -> Result<()> {
+        use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
+
+        let params = EvaluateParams::builder()
+            .expression(script)
+            .return_by_value(true)
+            .build()
+            .map_err(|e| BrowserError::Cdp(format!("stealth script builder: {e}")))?;
+
+        match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(err)) => Err(BrowserError::Cdp(err.to_string())),
+            Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
+        }
+    }
+
+    /// Apply stealth configuration to this page: inject fingerprint
+    /// override scripts and set CDP emulation overrides for timezone
+    /// if configured.
+    ///
+    /// Uses a single [`FingerprintProfile`] for both the JS overrides
+    /// and the CDP emulation domain, ensuring consistency.
+    ///
+    /// # Errors
+    /// Returns [`BrowserError::Cdp`] if any CDP command fails.
+    pub async fn apply_stealth(&self, config: &mut StealthConfig) -> Result<()> {
+        if !config.enabled {
+            return Ok(());
+        }
+
+        // Copy configuration fields before mutably borrowing config for
+        // next_profile(), to satisfy Rust's borrow checker.
+        let extra = config.extra;
+        let use_cdp = config.use_cdp_emulation;
+
+        // Get the next profile once — used for both JS overrides and
+        // CDP emulation, ensuring the timezone/locale/webgl fields are
+        // consistent across both injection paths.
+        let profile = match config.next_profile() {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+
+        // Inject the JS override script.
+        let script = crate::stealth::build_stealth_script(profile, &extra);
+        self.inject_stealth(&script).await?;
+
+        // Apply CDP emulation overrides if enabled.
+        if use_cdp {
+            self.apply_cdp_emulation(profile).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Set CDP emulation overrides (timezone, locale, etc.) on the page.
+    /// Currently overrides `Intl.DateTimeFormat` to return the profile's
+    /// timezone. This is done via `Runtime.evaluate` rather than the raw
+    /// CDP `Emulation.setTimezoneOverride` command, which may not be
+    /// available in all chromiumoxide versions.
+    async fn apply_cdp_emulation(
+        &self,
+        profile: &crate::stealth::FingerprintProfile,
+    ) -> Result<()> {
+        use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
+
+        let script = format!(
+            r#"
+(function() {{
+    try {{
+        const tz = "{timezone}";
+        const OrigDateTimeFormat = Intl.DateTimeFormat;
+        Intl.DateTimeFormat = function(locales, options) {{
+            const opts = Object.assign({{}}, options, {{ timeZone: tz }});
+            return new OrigDateTimeFormat(locales, opts);
+        }};
+        Intl.DateTimeFormat.prototype = OrigDateTimeFormat.prototype;
+    }} catch(e) {{}}
+}})();
+"#,
+            timezone = profile.timezone
+        );
+
+        let params = EvaluateParams::builder()
+            .expression(&script)
+            .return_by_value(true)
+            .build()
+            .map_err(|e| BrowserError::Cdp(format!("stealth emulation builder: {e}")))?;
+
+        match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(err)) => {
+                tracing::warn!(
+                    target = "genatp::stealth",
+                    "CDP emulation timezone override failed: {err}"
+                );
+                Ok(())
+            }
+            Err(_) => {
+                tracing::warn!(target = "genatp::stealth", "CDP emulation timeout");
+                Ok(())
+            }
+        }
     }
 
     /// Capture a full-viewport PNG screenshot. Returns the raw PNG bytes;

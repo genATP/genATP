@@ -4,24 +4,22 @@
 //! [`chromiumoxide::browser::BrowserConfig`]. We control the launch flags
 //! ourselves (rather than delegating to defaults) so that:
 //!
-//! 1. Phase 11 stealth hardening can extend this builder without forking
-//!    `chromiumoxide`.
+//! 1. Phase 11 stealth hardening extends this builder.
 //! 2. The set of flags used in production is reviewable and grep-able in
 //!    one file (this one), not buried inside upstream.
 //!
-//! ### What we set today
+//! ### What we set (including Phase 11 stealth)
 //!
 //! - **Always-disabled automation telltales** — `AutomationControlled` blink
 //!   feature, `--enable-automation` is not passed (chromiumoxide's default).
-//! - **Realistic viewport** — 1280×800 by default.
+//! - **Realistic viewport** — 1280×800 by default (override per stealth profile).
 //! - **Locale + timezone** — defaults to `en-US` / `UTC`; overridable.
 //! - **Headless** — controlled by `headless()`. `HeadlessMode::New` is used
-//!   by default (the modern --headless=new which renders identically to
-//!   headed Chrome); override to `HeadlessMode::True` for legacy headless or
-//!   `HeadlessMode::False` for visible debugging.
-//!
-//! Anti-bot fingerprint hardening (`navigator.webdriver`, plugin spoofing,
-//! WebGL vendor) lands in Phase 11.
+//!   by default.
+//! - **Stealth fingerprint hardening** — runtime CDP overrides for
+//!   `navigator.webdriver`, plugin spoofing, WebGL vendor/renderer,
+//!   screen resolution, hardware concurrency, and more.
+//!   See [`crate::stealth`] module docs.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -30,6 +28,12 @@ use chromiumoxide::browser::BrowserConfig;
 use chromiumoxide::handler::viewport::Viewport;
 
 use crate::error::{BrowserError, Result};
+use crate::stealth::StealthConfig;
+
+/// Default stealth configuration used when none is explicitly provided.
+fn default_stealth() -> StealthConfig {
+    StealthConfig::default()
+}
 
 /// chromiumoxide's [`BrowserConfigBuilder::arg`] treats strings as flag *keys*
 /// and prefixes `--`. Passing `"--no-sandbox"` becomes `----no-sandbox`, which
@@ -88,6 +92,11 @@ pub struct LaunchOptions {
     /// Extra raw command-line arguments appended verbatim. Use sparingly —
     /// prefer typed builder methods so the flag is reviewable.
     pub extra_args: Vec<String>,
+
+    /// Stealth fingerprint configuration (Phase 11).
+    /// Defaults to [`StealthConfig::default()`] (enabled with all profiles).
+    /// Set to [`StealthConfig::disabled()`] to disable fingerprint hardening.
+    pub stealth: StealthConfig,
 }
 
 impl Default for LaunchOptions {
@@ -108,6 +117,7 @@ impl Default for LaunchOptions {
             user_data_dir: None,
             connect_timeout: Duration::from_secs(20),
             extra_args: Vec::new(),
+            stealth: default_stealth(),
         }
     }
 }
@@ -165,6 +175,20 @@ impl LaunchOptions {
     #[must_use]
     pub fn arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_args.push(arg.into());
+        self
+    }
+
+    /// Override stealth configuration.
+    #[must_use]
+    pub fn stealth(mut self, config: StealthConfig) -> Self {
+        self.stealth = config;
+        self
+    }
+
+    /// Disable stealth entirely.
+    #[must_use]
+    pub fn disable_stealth(mut self) -> Self {
+        self.stealth = StealthConfig::disabled();
         self
     }
 
@@ -359,6 +383,27 @@ mod tests {
         LaunchOptions::default()
             .into_config()
             .expect("default config should build");
+    }
+
+    #[test]
+    fn stealth_is_enabled_by_default() {
+        let opts = LaunchOptions::default();
+        assert!(opts.stealth.enabled, "stealth should be enabled by default");
+    }
+
+    #[test]
+    fn disable_stealth_turns_it_off() {
+        let opts = LaunchOptions::default().disable_stealth();
+        assert!(!opts.stealth.enabled);
+    }
+
+    #[test]
+    fn stealth_config_can_be_overridden() {
+        let mut config = StealthConfig::disabled();
+        config.extra.network_jitter_ms = 10;
+        let opts = LaunchOptions::default().stealth(config);
+        assert!(!opts.stealth.enabled);
+        assert_eq!(opts.stealth.extra.network_jitter_ms, 10);
     }
 
     #[test]

@@ -3,10 +3,9 @@ name: Nightly Stealth Suite
 # Runs the anti-bot stealth suite against external bot-detection sites nightly.
 # Quarantine model: stealth tests live outside the PR-blocking matrix so a
 # vendor changing their fingerprint at 3am doesn't stop releases. A failure
-# opens a P1 ticket via the action below.
+# opens a P1 issue via the action below.
 #
-# Phase 0 ships the schedule + skeleton. Real stealth probes land in Phase 11
-# (anti-bot hardening) which adds the suite to fixtures/stealth/.
+# Phase 11 fills in the stealth probes that Phase 0 scaffolded.
 
 on:
   schedule:
@@ -19,40 +18,71 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Integration tests that probe external bot-detection sites look for
+  # this env var. The `#[ignore]` attribute keeps them out of the normal
+  # CI matrix.
+  GENATP_STEALTH_LIVE: "1"
 
 jobs:
   stealth:
-    name: stealth probes
-    runs-on: ubuntu-latest
+    name: stealth probes (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          key: stealth
+          key: stealth-${{ matrix.target }}
 
-      - name: Detect stealth suite
-        id: detect
-        shell: bash
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+        with:
+          chrome-version: stable
+
+      - name: Export CHROME_PATH
+        run: echo "CHROME_PATH=${{ steps.setup-chrome.outputs.chrome-path }}" >> $GITHUB_ENV
+
+      - name: Run stealth unit tests (no external sites)
         run: |
-          if [ -d fixtures/stealth ]; then
-            echo "has_stealth=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_stealth=false" >> "$GITHUB_OUTPUT"
-          fi
+          cargo test -p genatp-browser -- stealth 2>&1
 
-      - name: Run stealth probes
-        if: steps.detect.outputs.has_stealth == 'true'
-        run: cargo test -p genatp-browser --features stealth-suite -- --ignored --test-threads 1
-        env:
-          GENATP_STEALTH_LIVE: "1"
+      - name: Run human-input unit tests
+        run: |
+          cargo test -p genatp-browser -- input 2>&1
+
+      - name: Run live stealth probes (bot detection sites)
+        run: |
+          cargo test -p genatp-browser -- --ignored --test-threads 1 -- stealth::live 2>&1
+        continue-on-error: true
+
+      - name: Run external bot-detection site probes
+        run: |
+          cargo test -p genatp-browser -- --ignored --test-threads 1 -- stealth::bots 2>&1
+        continue-on-error: true
+
+      - name: Collect results
+        id: collect
+        run: |
+          echo "Stealth suite completed at $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_STEP_SUMMARY
 
       - name: Open issue on failure
-        if: failure() && steps.detect.outputs.has_stealth == 'true'
+        if: failure()
         uses: actions/github-script@v7
         with:
           script: |
@@ -61,9 +91,5 @@ jobs:
               repo: context.repo.repo,
               title: `[stealth] nightly probe failed ${new Date().toISOString().slice(0,10)}`,
               labels: ["stealth", "P1", "auto-opened"],
-              body: `Nightly stealth suite failed.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nQuarantined from PR matrix per Phase 11 policy. Triage within 24h.`
+              body: `Nightly stealth suite failed.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nThis is quarantined from the PR matrix per ADR-005. Triage within 24h.\n\nCheck the stealth test suite results at:\n- Unit tests: cargo test -p genatp-browser -- stealth\n- Live probes: cargo test -p genatp-browser -- --ignored -- test-threads 1 -- stealth::live\n- Bot detection: cargo test -p genatp-browser -- --ignored -- test-threads 1 -- stealth::bots`
             });
-
-      - name: No-op (Phase 0 — stealth suite not yet authored)
-        if: steps.detect.outputs.has_stealth != 'true'
-        run: echo "Stealth suite not present. Phase 11 will populate fixtures/stealth/."

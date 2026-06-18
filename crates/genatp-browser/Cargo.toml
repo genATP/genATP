@@ -33,6 +33,7 @@ futures-util.workspace = true
 url.workspace = true
 chromiumoxide.workspace = true
 base64.workspace = true
+fastrand.workspace = true
 
 [dev-dependencies]
 axum.workspace = true
