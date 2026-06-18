@@ -1,0 +1,21 @@
+# ATP Spec: Login Flow
+# A complete browser-automation spec that validates a login form.
+version: 1
+name: "Login Flow"
+description: "Validates login form UI on the demo site"
+base_url: "https://the-internet.herokuapp.com"
+budget:
+  tokens: 5000
+  seconds: 60
+  usd: 0.10
+steps:
+  - navigate: "/login"
+  - assert: "Login Page"
+  - fill:
+      label: "Username"
+      value: "tomsmith"
+  - fill:
+      label: "Password"
+      value: "SuperSecretPassword!"
+  - click: "Login"
+  - assert: "You logged into a secure area!"

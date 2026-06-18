@@ -61,6 +61,37 @@ pub enum Command {
         #[command(subcommand)]
         action: CassetteAction,
     },
+    /// Parse, validate, and list ATP specs.
+    Atp {
+        #[command(subcommand)]
+        action: AtpAction,
+    },
+}
+
+/// Subcommands under `genatp atp`.
+#[derive(Debug, Subcommand)]
+pub enum AtpAction {
+    /// Parse and validate a .atp.yml spec file.
+    Validate {
+        /// Path to the .atp.yml file.
+        path: PathBuf,
+    },
+    /// Dump the parsed IR as pretty JSON.
+    Dump {
+        /// Path to the .atp.yml file.
+        path: PathBuf,
+    },
+    /// List .atp.yml files in a directory (default: current dir).
+    List {
+        /// Directory to search.
+        #[arg(default_value = ".")]
+        directory: PathBuf,
+    },
+    /// Print a human-readable step summary for a spec.
+    Steps {
+        /// Path to the .atp.yml file.
+        path: PathBuf,
+    },
 }
 
 /// Subcommands under `genatp vault`.
@@ -214,6 +245,13 @@ pub fn run() -> i32 {
             Ok(()) => 0,
             Err(e) => {
                 eprintln!("genatp: cassette failed: {e:#}");
+                1
+            }
+        },
+        Some(Command::Atp { action }) => match run_atp(action) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: atp failed: {e:#}");
                 1
             }
         },
@@ -397,6 +435,39 @@ fn run_replay(slug: String, version: Option<String>) -> anyhow::Result<()> {
     println!("  Dry-run: {succeeded} would succeed, {failed} would need a ref resolver");
 
     Ok(())
+}
+
+fn run_atp(action: AtpAction) -> anyhow::Result<()> {
+    match action {
+        AtpAction::Validate { path } => {
+            let result = genatp_atp_spec::cli::validate_spec_pretty(&path);
+            println!("{result}");
+            Ok(())
+        }
+        AtpAction::Dump { path } => {
+            let json =
+                genatp_atp_spec::cli::dump_spec_json(&path).map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("{json}");
+            Ok(())
+        }
+        AtpAction::List { directory } => {
+            let specs = genatp_atp_spec::cli::list_specs(&directory)?;
+            if specs.is_empty() {
+                println!("no .atp.yml files found in {}", directory.display());
+            } else {
+                for spec in &specs {
+                    println!("{}", spec.display());
+                }
+            }
+            Ok(())
+        }
+        AtpAction::Steps { path } => {
+            let out =
+                genatp_atp_spec::cli::print_steps(&path).map_err(|e| anyhow::anyhow!("{e}"))?;
+            print!("{out}");
+            Ok(())
+        }
+    }
 }
 
 fn run_vault(action: VaultAction) -> anyhow::Result<()> {
@@ -615,6 +686,63 @@ mod tests {
                 assert!(version.is_none());
             }
             _ => panic!("expected cassette replay subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_atp_validate() {
+        let cli = Cli::try_parse_from(["genatp", "atp", "validate", "test.atp.yml"]).unwrap();
+        match cli.command {
+            Some(Command::Atp {
+                action: AtpAction::Validate { path },
+            }) => {
+                assert_eq!(path, PathBuf::from("test.atp.yml"));
+            }
+            _ => panic!("expected atp validate subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_atp_dump() {
+        let cli = Cli::try_parse_from(["genatp", "atp", "dump", "spec.atp.yml"]).unwrap();
+        match cli.command {
+            Some(Command::Atp {
+                action: AtpAction::Dump { path },
+            }) => assert_eq!(path, PathBuf::from("spec.atp.yml")),
+            _ => panic!("expected atp dump"),
+        }
+    }
+
+    #[test]
+    fn parse_atp_list() {
+        let cli = Cli::try_parse_from(["genatp", "atp", "list"]).unwrap();
+        match cli.command {
+            Some(Command::Atp {
+                action: AtpAction::List { .. },
+            }) => {} // ok
+            _ => panic!("expected atp list"),
+        }
+    }
+
+    #[test]
+    fn parse_atp_list_with_dir() {
+        let cli = Cli::try_parse_from(["genatp", "atp", "list", "fixtures/"]).unwrap();
+        match cli.command {
+            Some(Command::Atp {
+                action: AtpAction::List { directory },
+            }) => assert_eq!(directory, PathBuf::from("fixtures/")),
+            _ => panic!("expected atp list with dir"),
+        }
+    }
+
+    #[test]
+    fn parse_atp_steps() {
+        let cli = Cli::try_parse_from(["genatp", "atp", "steps", "spec.atp.yml"]).unwrap();
+        match cli.command {
+            Some(Command::Atp {
+                action: AtpAction::Steps { path },
+            }) => assert_eq!(path, PathBuf::from("spec.atp.yml")),
+            _ => panic!("expected atp steps"),
         }
     }
 

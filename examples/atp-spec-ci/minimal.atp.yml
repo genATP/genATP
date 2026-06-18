@@ -1,0 +1,7 @@
+# Minimal ATP Spec
+# The simplest possible valid spec.
+version: 1
+name: "Minimal Example"
+steps:
+  - navigate: "https://example.com"
+  - assert: "Example Domain"

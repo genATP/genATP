@@ -1,0 +1,23 @@
+# ATP Spec: DuckDuckGo Search
+# Searches for "Rust programming" and verifies results.
+version: 1
+name: "DuckDuckGo Search"
+description: "Search DuckDuckGo for Rust and verify results appear"
+base_url: "https://duckduckgo.com"
+budget:
+  tokens: 3000
+  seconds: 30
+  usd: 0.05
+steps:
+  - navigate: "/"
+  - assert: "DuckDuckGo"
+  - fill:
+      label: "search"
+      value: "Rust programming"
+  - press: "Enter"
+  - wait: 2000
+  - assert: "Rust"
+  - assert_url:
+      url: "duckduckgo.com"
+      contains: true
+  - screenshot: "search-results"

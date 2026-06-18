@@ -14,3 +14,21 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_norway = "0.9"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+url = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Cross-crate
+genatp-core = { path = "../genatp-core" }
+genatp-browser = { path = "../genatp-browser" }
+genatp-perception = { path = "../genatp-perception" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+insta = { workspace = true }

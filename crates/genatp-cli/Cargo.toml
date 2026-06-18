@@ -35,3 +35,4 @@ genatp-vault = { path = "../genatp-vault" }
 genatp-cassette = { path = "../genatp-cassette" }
 genatp-core = { path = "../genatp-core" }
 chrono = { workspace = true }
+genatp-atp-spec = { path = "../genatp-atp-spec" }
