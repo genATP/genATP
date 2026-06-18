@@ -465,11 +465,11 @@ mod tests {
         });
         let (x, y) = sim.click_offset_in_element(100.0, 100.0, 40.0, 30.0);
         assert!(
-            x >= 80.0 && x <= 120.0,
+            (80.0..=120.0).contains(&x),
             "x must be within element width: {x}"
         );
         assert!(
-            y >= 85.0 && y <= 115.0,
+            (85.0..=115.0).contains(&y),
             "y must be within element height: {y}"
         );
     }

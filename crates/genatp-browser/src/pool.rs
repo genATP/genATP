@@ -184,7 +184,7 @@ impl BrowserPool {
         // Apply stealth configuration to the new page, rotating the shared
         // fingerprint pool so each page gets a different profile.
         let mut stealth = self.inner.stealth.lock().await;
-        if let Err(e) = page.apply_stealth(&mut *stealth).await {
+        if let Err(e) = page.apply_stealth(&mut stealth).await {
             tracing::warn!(target = "genatp::stealth", "stealth injection failed: {e}");
             // Non-fatal: page works without stealth, just not as hardened.
         }

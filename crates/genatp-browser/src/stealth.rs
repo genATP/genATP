@@ -122,13 +122,17 @@ pub struct FingerprintProfile {
 /// One MIME type entry within a plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginMimeType {
+    /// Human-readable description (e.g. "Portable Document Format").
     pub description: String,
+    /// Comma-separated file extensions (e.g. "pdf").
     pub suffixes: String,
+    /// MIME type string (e.g. "application/pdf").
     #[serde(rename = "type")]
     pub mime_type: String,
 }
 
 impl PluginMimeType {
+    /// Create a new `PluginMimeType` entry.
     #[must_use]
     pub fn new(description: String, suffixes: String, mime_type: String) -> Self {
         Self {
@@ -1054,7 +1058,7 @@ impl FingerprintPool {
 
     /// Select the next profile (round-robin) and advance the index.
     #[must_use]
-    pub fn next(&mut self) -> &FingerprintProfile {
+    pub fn advance(&mut self) -> &FingerprintProfile {
         if self.profiles.is_empty() {
             // Fall back to the first built-in profile.
             static FALLBACK: std::sync::LazyLock<FingerprintProfile> =
@@ -1150,7 +1154,7 @@ impl StealthConfig {
         if !self.enabled {
             return None;
         }
-        Some(self.fingerprint_pool.next())
+        Some(self.fingerprint_pool.advance())
     }
 
     /// Build the full stealth injection script from the next profile.
@@ -1225,12 +1229,12 @@ mod tests {
         // Rotate through every profile without pre-consuming.
         let mut seen = std::collections::HashSet::new();
         for _ in 0..profiles.len() {
-            seen.insert(pool.next().name.clone());
+            seen.insert(pool.advance().name.clone());
         }
         assert_eq!(seen.len(), profiles.len());
         // After a full rotation (N calls), index is N % N == 0, so
         // the next call should cycle back to the first profile.
-        let next_name = pool.next().name.clone();
+        let next_name = pool.advance().name.clone();
         assert_eq!(
             next_name, first_name,
             "round-robin should cycle back to first"
