@@ -147,6 +147,7 @@ async fn probe_url(url: &str) -> Result<String, String> {
 
     let json_str: String = result
         .result
+        .result
         .value
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
@@ -235,7 +236,7 @@ async fn stealth_probe_creepjs() {
 
 #[test]
 fn all_profiles_have_realistic_viewport() {
-    use genatp_browser::stealth::{FingerprintPool, builtin_profiles};
+    use genatp_browser::stealth::builtin_profiles;
     use genatp_browser::stealth_profiles::extended_profiles;
 
     for p in builtin_profiles().iter().chain(extended_profiles().iter()) {
@@ -262,7 +263,7 @@ fn all_profiles_have_realistic_viewport() {
 
 #[test]
 fn all_profiles_have_unique_locale_timezone_combinations() {
-    use genatp_browser::stealth::{FingerprintPool, builtin_profiles};
+    use genatp_browser::stealth::builtin_profiles;
     use genatp_browser::stealth_profiles::extended_profiles;
 
     let mut combos = std::collections::HashSet::new();
