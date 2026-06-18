@@ -93,7 +93,7 @@ base64 = "0.22"
 # nicely with `forbid(unsafe_code)`.
 aes-gcm = "0.10"
 hkdf = "0.12"
-sha2 = "0.10"
+sha2 = "0.11"
 argon2 = "0.5"
 zeroize = { version = "1", features = ["derive"] }
 secrecy = "0.10"
