@@ -48,7 +48,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0",
     "vitest": "^1.6.0",
-    "typescript": "^5.4.0"
+    "typescript": "^6.0.3"
   },
   "optionalDependencies": {
     "genatp-node-win32-x64-msvc": "0.6.0",
