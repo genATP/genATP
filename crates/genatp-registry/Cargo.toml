@@ -36,3 +36,4 @@ tempfile = { workspace = true }
 proptest = { workspace = true }
 genatp-core = { path = "../genatp-core" }
 rand = { workspace = true }
+criterion = { workspace = true }

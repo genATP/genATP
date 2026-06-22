@@ -35,3 +35,4 @@ genatp-perception = { path = "../genatp-perception" }
 [dev-dependencies]
 tempfile = { workspace = true }
 proptest = { workspace = true }
+criterion = { workspace = true }

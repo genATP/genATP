@@ -904,7 +904,7 @@ pub fn builtin_profiles() -> Vec<FingerprintProfile> {
             webgl_vendor: "Google Inc. (Microsoft)".into(),
             webgl_renderer: "ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)Google".into(),
             webgl_version: "WebGL 1.0 (OpenGL ES 2.0)".into(),
-            timezone: "America/New_York".into(),
+            timezone: "America/Denver".into(),
             locale: "en-US".into(),
             fonts: vec![
                 "Arial".into(), "Calibri".into(), "Cambria".into(), "Consolas".into(),

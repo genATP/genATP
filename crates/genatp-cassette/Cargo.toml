@@ -41,3 +41,4 @@ tempfile = { workspace = true }
 genatp-llm = { path = "../genatp-llm" }
 genatp-browser = { path = "../genatp-browser" }
 tokio = { workspace = true, features = ["rt", "macros", "time"] }
+criterion = { workspace = true }

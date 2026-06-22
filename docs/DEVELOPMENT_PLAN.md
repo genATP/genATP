@@ -1,7 +1,7 @@
 # genATP — Development Plan
 
 **Version:** 1.0  
-**Last updated:** 2026-05-22  
+**Last updated:** 2026-06-22  
 **Audience:** Founding engineering team (2 developers)  
 **Companion docs:** [PRD](./PRD.md) · [Architecture](./ARCHITECTURE.md) · [User Flows](./USER_FLOWS.md)
 
@@ -57,10 +57,11 @@ genATP is a **production-grade, extremely fast** unified web-access layer for AI
 | 16   | v0.5.0     | Cassettes (record + replay + self-heal) + ATP Spec            |
 | 19   | v0.6.0     | TypeScript SDK                                                |
 | 21   | v0.7.0     | Stealth engine                                                |
-| 26   | v0.8.0     | Cassette Registry                                             |
-| 30   | Cloud beta | Managed infrastructure                                        |
-| 36   | Enterprise | SOC 2 Type I, SSO, on-prem                                    |
-| 40   | **v1.0.0** | GA + published WebVoyager benchmark                           |
+| 23   | v0.8.0-pre | Time-travel debugger (Phase 13)                                |
+| 26   | v0.9.0-pre | Cassette Registry (Phase 14)                                   |
+| 30   | Cloud beta | Managed infrastructure (deferred)                              |
+| 36   | Enterprise | SOC 2 Type I, SSO, on-prem (deferred)                          |
+| 40   | **v1.0.0** 🎉 | GA + published WebVoyager benchmark (Phases 0–14, 17)     |
 
 
 ---
@@ -303,11 +304,11 @@ gantt
 | 10    | TypeScript SDK         | 17–19      | v0.6.0             | Dev A              |
 | 11    | Stealth engine         | 19–21      | v0.7.0             | Dev B              |
 | 12    | DOM/Vision switch      | 21–22      | v0.7.1             | Dev A              |
-| 13    | Time-travel debugger   | 22–23      | v0.8.0-pre         | Dev B              |
-| 14    | Cassette Registry      | 23–26      | v0.8.0             | Both               |
-| 15    | Cloud private beta     | 26–30      | cloud-beta         | Both + contractor  |
-| 16    | Enterprise prep        | 30–36      | enterprise-preview | Dev B + consultant |
-| 17    | v1.0 GA + benchmark    | 36–40      | **v1.0.0**         | Both               |
+| 13    | Time-travel debugger       | 22–23      | v0.8.0-pre         | Dev B              |
+| 14    | Cassette Registry          | 23–26      | v0.9.0-pre         | Both               |
+| 15    | Cloud private beta         | deferred   | —                  | —                  |
+| 16    | Enterprise prep            | deferred   | —                  | —                  |
+| 17    | v1.0 GA + benchmark        | 36–40      | **v1.0.0**         | Both               |
 
 
 ---
@@ -1271,10 +1272,11 @@ Template: `docs/adr/0000-template.md`
 | v0.6.0             | 10              |
 | v0.7.0             | 11              |
 | v0.7.1             | 12              |
-| v0.8.0             | 13–14           |
-| cloud-beta         | 15              |
-| enterprise-preview | 16              |
-| **v1.0.0**         | 17              |
+| v0.8.0-pre         | 13              |
+| v0.9.0-pre         | 14              |
+| —                  | 15 (deferred)   |
+| —                  | 16 (deferred)   |
+| **v1.0.0**         | 0–14, 17        |
 
 
 ### 8.4 Release checklist (every stable tag)

@@ -263,8 +263,8 @@ pub fn extended_profiles() -> Vec<FingerprintProfile> {
             webgl_vendor: "Google Inc. (NVIDIA)".into(),
             webgl_renderer: "ANGLE (NVIDIA, NVIDIA GeForce GT 730 Direct3D11 vs_5_0 ps_5_0)Google".into(),
             webgl_version: "WebGL 1.0 (OpenGL ES 2.0)".into(),
-            timezone: "Europe/Paris".into(),
-            locale: "fr-FR".into(),
+            timezone: "Europe/Brussels".into(),
+            locale: "fr-BE".into(),
             fonts: vec![
                 "Arial".into(), "Calibri".into(), "Cambria".into(), "Consolas".into(),
                 "Courier New".into(), "Georgia".into(), "Microsoft Sans Serif".into(),
@@ -391,8 +391,8 @@ pub fn extended_profiles() -> Vec<FingerprintProfile> {
             webgl_vendor: "Google Inc. (Apple)".into(),
             webgl_renderer: "ANGLE (Apple, Apple M2, OpenGL 4.1)Google".into(),
             webgl_version: "WebGL 1.0 (OpenGL ES 2.0 Chromium)".into(),
-            timezone: "Europe/London".into(),
-            locale: "en-GB".into(),
+            timezone: "Europe/Dublin".into(),
+            locale: "en-IE".into(),
             fonts: vec![
                 "American Typewriter".into(), "Apple Color Emoji".into(), "Arial".into(),
                 "Avenir".into(), "Baskerville".into(), "Courier New".into(),

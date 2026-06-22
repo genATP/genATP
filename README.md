@@ -6,7 +6,7 @@
 *Generative Agent Test Protocol — one install, any agent, any LLM, 10× fewer tokens.*
 
 [![License: Personal Use](https://img.shields.io/badge/license-Personal%20Use-orange.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-v0.3.0-blue.svg)](#roadmap)
+[![Status](https://img.shields.io/badge/status-v1.0.0-brightgreen.svg)](#roadmap)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-blue.svg)](#contributing)
 
 [Quickstart](#quickstart) · [Why genATP](#why-genatp) · [Docs](./docs) · [Roadmap](#roadmap)
@@ -51,11 +51,11 @@ Plus the modern essentials: token-optimized snapshots, encrypted auth vault, aut
 | Login persistence across runs | ❌ | ❌ | ✅ encrypted vault |
 | Self-heal on site change | ❌ | ❌ | ✅ automatic |
 
-(Detailed methodology in [`docs/BENCHMARK.md`](./docs/BENCHMARK.md) — coming with v0.1.)
+(Detailed methodology in [`docs/BENCHMARK.md`](./docs/BENCHMARK.md).)
 
 ---
 
-## Quickstart (Python SDK — v0.2.0)
+## Quickstart (Python SDK)
 
 ```bash
 pip install genatp
@@ -82,7 +82,7 @@ Full Python docs: [`bindings/python/README.md`](./bindings/python/README.md) and
 
 ---
 
-## Quickstart (MCP server + Auth Vault — v0.3.0)
+## Quickstart (MCP server)
 
 The MCP server lets any MCP-compatible LLM client drive a browser without
 writing Python.
@@ -94,7 +94,7 @@ git clone https://github.com/genatp/genatp && cd genatp
 cargo build --release -p genatp-cli
 cargo install --path crates/genatp-cli
 genatp version
-# genatp 0.3.0
+# genatp 1.0.0
 ```
 
 ### 2. Wire it into Claude Desktop
@@ -229,7 +229,21 @@ Modern bot-detection looks at hundreds of signals (mouse cadence, GPU fingerprin
 }
 ```
 
-Restart your client. From **v0.1** Claude has `navigate`, `snapshot`, `click`, `fill`, `extract`, `scroll`, `screenshot`, `get_url`, `go_back`. From **v0.3** add `save_auth`, `load_auth`, `list_auth`. From **v0.5** add `record_cassette`, `replay_cassette`. See [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) for the phase-by-phase tool surface.
+Restart your client. genATP exposes all 12 browser tools:
+
+| Tool | Purpose |
+|------|---------|
+| `navigate` | Navigate to a URL |
+| `snapshot` | Capture compressed accessibility tree |
+| `click`, `fill` | Interact with elements by `@eN` ref |
+| `extract` | Read visible page text |
+| `scroll` | Scroll viewport |
+| `screenshot` | Capture PNG screenshot (base64) |
+| `get_url`, `go_back` | Navigation helpers |
+| `save_auth`, `load_auth`, `list_auth` | Auth Vault management |
+
+From **v1.0.0** you also get the Cassette Registry (`genatp registry search`/`install`/`publish`)
+and the Time-travel Debugger (`genatp replay <run-id>`). See [`docs/MCP.md`](./docs/MCP.md) for details.
 
 ### LangChain / LlamaIndex / your custom agent
 
@@ -284,9 +298,13 @@ Full system, container, component, and deployment diagrams in [`docs/ARCHITECTUR
 | [`docs/PRD.md`](./docs/PRD.md) | Product vision, problem, personas, features, success metrics, roadmap |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System / container / component diagrams, data flow, security model |
 | [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) | 18-phase build plan, tech stack, testing gates, release cadence |
+| [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) | Release history across all versions |
+| [`docs/MIGRATION.md`](./docs/MIGRATION.md) | v0.x → v1.0 migration guide |
+| [`docs/BENCHMARK.md`](./docs/BENCHMARK.md) | WebVoyager methodology, performance budgets, regression detection |
 | [`docs/USER_FLOWS.md`](./docs/USER_FLOWS.md) | End-to-end journeys for each persona, with sequence diagrams |
 | [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) | Provider selection (Ollama / Anthropic / OpenAI / NVIDIA NIM), env vars, `.env` |
 | [`docs/MCP.md`](./docs/MCP.md) | MCP server setup for Claude Desktop, Cursor, MCP Inspector |
+| [`docs/TESTING.md`](./docs/TESTING.md) | Comprehensive testing guide across all phases |
 | [`docs/python/`](./docs/python/) | Python SDK reference (`pip install genatp`) |
 | [`bindings/python/README.md`](./bindings/python/README.md) | Python SDK install, async, LangChain, providers |
 
@@ -307,9 +325,8 @@ Full phase plan with testing gates: [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPM
 | v0.7.0 | 21 | Stealth engine |
 | v0.7.1 | 22 | DOM ↔ Vision auto-switch |
 | v0.8.0 | 26 | Cassette Registry + time-travel debugger |
-| cloud-beta | 30 | genATP Cloud (managed) private beta |
-| enterprise | 36 | SOC 2 Type I, SSO, on-prem Helm chart |
-| **v1.0.0** | 40 | GA + full WebVoyager benchmark (≥ 85% / ≤ 35k tokens) |
+| **v0.9.0-pre** | — | **v1.0.0 pre-release** |
+| **v1.0.0** 🎉 | 40 | **GA** — full WebVoyager benchmark (≥ 85% / ≤ 35k tokens) |
 | v1.x | post-GA | Public marketplace, A2A, WebMCP bridge, patched Chromium default |
 
 ---
@@ -336,7 +353,7 @@ This is a serious project. We want serious contributors.
 3. **Run the benchmark suite** (`make bench`) before submitting — performance regressions are blockers.
 4. **Sign your cassettes** if you contribute to the registry. Unsigned cassettes won't be merged.
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) (coming with v0.1) for the full guide.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full guide.
 
 ---
 

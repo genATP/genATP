@@ -483,10 +483,10 @@ mod tests {
         };
         let mut sim = HumanInputSimulator::new(config);
         let path = sim.generate_mouse_path(10.0, 10.0, 500.0, 500.0);
-        // +2 for start and end points beyond the segment count
+        // n_segments in [10,15] yields n_segments+1 points = [11, 16]
         assert!(
-            path.len() >= 12 && path.len() <= 17,
-            "path length {} should be in [12, 17]",
+            path.len() >= 11 && path.len() <= 16,
+            "path length {} should be in [11, 16]",
             path.len()
         );
     }

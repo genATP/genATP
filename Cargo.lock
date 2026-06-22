@@ -1122,7 +1122,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-atp-spec"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1142,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-browser"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1163,12 +1163,13 @@ dependencies = [
 
 [[package]]
 name = "genatp-cassette"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64",
  "blake3",
  "chrono",
+ "criterion",
  "directories 5.0.1",
  "ed25519-dalek",
  "genatp-browser",
@@ -1188,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-cli"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1212,12 +1213,13 @@ dependencies = [
 
 [[package]]
 name = "genatp-core"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
  "blake3",
  "chrono",
+ "criterion",
  "fastrand",
  "genatp-browser",
  "genatp-llm",
@@ -1235,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-debugger"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1256,11 +1258,12 @@ dependencies = [
 
 [[package]]
 name = "genatp-llm"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "blake3",
  "chrono",
+ "criterion",
  "genatp-perception",
  "hex",
  "proptest",
@@ -1275,7 +1278,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-mcp"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1298,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-node"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1318,7 +1321,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-perception"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64",
@@ -1341,7 +1344,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-python"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "genatp-browser",
@@ -1358,12 +1361,13 @@ dependencies = [
 
 [[package]]
 name = "genatp-registry"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
  "blake3",
  "chrono",
+ "criterion",
  "directories 5.0.1",
  "ed25519-dalek",
  "genatp-cassette",
@@ -1384,7 +1388,7 @@ dependencies = [
 
 [[package]]
 name = "genatp-vault"
-version = "0.7.1"
+version = "1.0.0"
 dependencies = [
  "aes-gcm",
  "argon2",
