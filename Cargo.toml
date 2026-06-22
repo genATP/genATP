@@ -103,7 +103,7 @@ keyring = { version = "3", default-features = false, features = [
   "windows-native",
   "linux-native",
 ] }
-directories = "5"
+directories = "6"
 # Phase 7 — Cassette signing
 # ed25519-dalek is pure-Rust, widely audited, and the standard ed25519
 # implementation in the Rust ecosystem. Keeps us on all-RustCrypto.
