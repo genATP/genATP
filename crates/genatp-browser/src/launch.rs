@@ -42,6 +42,48 @@ fn normalize_chromium_arg(arg: &str) -> &str {
     arg.strip_prefix("--").unwrap_or(arg)
 }
 
+/// Try to find a Chrome / Chromium executable on Windows by checking common
+/// installation paths beyond what `chromiumoxide`'s auto-detection covers
+/// (registry + `CHROME_PATH` + `PATH`).  Chromium (not Google Chrome) installed
+/// via the Chromium project's official builds lives under `%LOCALAPPDATA%` and is
+/// often missed by registry-based discovery.
+///
+/// Returns `Some(path)` on Windows if a known location exists; `None` on
+/// non-Windows or when nothing is found.
+#[must_use]
+fn find_chrome_on_windows() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let candidates = [
+            // Chromium official builds (most common non-Chrome location)
+            ("LOCALAPPDATA", "Chromium\\Application\\chrome.exe"),
+            // Google Chrome user-level install (no admin rights)
+            ("LOCALAPPDATA", "Google\\Chrome\\Application\\chrome.exe"),
+            // Chromium / Chrome system-level install (Program Files)
+            ("PROGRAMFILES", "Chromium\\Application\\chrome.exe"),
+            ("PROGRAMFILES", "Google\\Chrome\\Application\\chrome.exe"),
+            ("PROGRAMFILES(X86)", "Chromium\\Application\\chrome.exe"),
+            (
+                "PROGRAMFILES(X86)",
+                "Google\\Chrome\\Application\\chrome.exe",
+            ),
+        ];
+        for (var, suffix) in &candidates {
+            if let Ok(base) = std::env::var(var) {
+                let p = PathBuf::from(base).join(suffix);
+                if p.is_file() {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = &();
+    }
+    None
+}
+
 /// Default viewport width — chosen to match a common desktop screen so pages
 /// that opt into responsive layouts give us the desktop tree (richer a11y).
 pub const DEFAULT_VIEWPORT_WIDTH: u32 = 1280;
@@ -102,7 +144,9 @@ pub struct LaunchOptions {
 impl Default for LaunchOptions {
     fn default() -> Self {
         Self {
-            chrome_executable: std::env::var_os("CHROME_PATH").map(PathBuf::from),
+            chrome_executable: std::env::var_os("CHROME_PATH")
+                .map(PathBuf::from)
+                .or_else(find_chrome_on_windows),
             headless: HeadlessMode::default(),
             viewport: Some(Viewport {
                 width: DEFAULT_VIEWPORT_WIDTH,

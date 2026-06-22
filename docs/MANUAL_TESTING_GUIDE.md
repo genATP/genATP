@@ -175,10 +175,12 @@ Each should show the subcommand-specific arguments and flags. **Exit code: 0**.
 # Expected: Error message — "cassette non-existent matching latest not found"
 ```
 
-### 3.8 ATP spec parse (non-existent file)
+### 3.8 ATP spec validate (non-existent file)
+
+The `atp` subcommand provides `validate`, `dump`, `list`, and `steps` operations.
 
 ```powershell
-.\target\release\genatp.exe atp parse non-existent.yml
+.\target\release\genatp.exe atp validate non-existent.yml
 # Expected: Error message about file not found
 ```
 

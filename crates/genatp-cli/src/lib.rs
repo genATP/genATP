@@ -177,6 +177,11 @@ pub struct RecordArgs {
     /// Launch Chrome in headed mode (visible window).
     #[arg(long)]
     pub headed: bool,
+    /// Path to the Chrome / Chromium executable. Auto-detected if not
+    /// set (checks `CHROME_PATH` env var, Windows registry, and common
+    /// installation directories).
+    #[arg(long, env = "CHROME_PATH")]
+    pub chrome_path: Option<PathBuf>,
     /// Description for the cassette metadata.
     #[arg(long, default_value = "")]
     pub description: String,
@@ -196,15 +201,23 @@ pub enum CassetteAction {
         version: Option<String>,
     },
     /// Replay a cassette deterministically (zero LLM calls).
-    /// Only actions that don't need element refs (Navigate, Scroll, Press,
-    /// Wait, Finish) will succeed. Click and Fill require a running browser
-    /// with a ref resolver.
+    /// Launches a browser, navigates to the start URL, builds a ref
+    /// resolver from the accessibility tree, and executes every step.
+    /// Click and Fill actions are resolved against live DOM nodes.
     Replay {
         /// Cassette slug to replay.
         slug: String,
         /// Specific version (default: latest).
         #[arg(long)]
         version: Option<String>,
+        /// Launch Chrome in headed mode (visible window).
+        #[arg(long)]
+        headed: bool,
+        /// Path to the Chrome / Chromium executable. Auto-detected if
+        /// not set (checks `CHROME_PATH` env var, Windows registry,
+        /// and common installation directories).
+        #[arg(long, env = "CHROME_PATH")]
+        chrome_path: Option<PathBuf>,
     },
 }
 
@@ -248,6 +261,12 @@ pub struct ServeArgs {
     /// headless. Useful for debugging.
     #[arg(long)]
     pub headed: bool,
+
+    /// Path to the Chrome / Chromium executable. Auto-detected if not
+    /// set (checks `CHROME_PATH` env var, Windows registry, and common
+    /// installation directories).
+    #[arg(long, env = "CHROME_PATH")]
+    pub chrome_path: Option<PathBuf>,
 
     /// Persistent user-data directory. Defaults to a fresh temp
     /// directory (ephemeral). Pass an existing path to reuse cookies
@@ -352,6 +371,7 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
     rt.block_on(async move {
         let session_cfg = genatp_mcp::SessionConfig {
             headless: !args.headed,
+            chrome_path: args.chrome_path.clone(),
             user_data_dir: args.user_data_dir.clone(),
             pool_capacity: 1,
             ..genatp_mcp::SessionConfig::default()
@@ -453,11 +473,34 @@ fn run_cassette(action: CassetteAction) -> anyhow::Result<()> {
             }
             Ok(())
         }
-        CassetteAction::Replay { slug, version } => run_replay(slug, version),
+        CassetteAction::Replay {
+            slug,
+            version,
+            headed,
+            chrome_path,
+        } => run_replay(slug, version, headed, chrome_path),
     }
 }
 
-fn run_replay(slug: String, version: Option<String>) -> anyhow::Result<()> {
+#[allow(clippy::field_reassign_with_default)]
+fn run_replay(
+    slug: String,
+    version: Option<String>,
+    headed: bool,
+    chrome_path: Option<PathBuf>,
+) -> anyhow::Result<()> {
+    use std::collections::HashMap;
+
+    use genatp_browser::LaunchOptions;
+    use genatp_browser::launch::HeadlessMode;
+    use genatp_browser::pool::{BrowserPool, PoolConfig};
+    use genatp_core::action::Action;
+    use genatp_core::dispatcher::BrowserAdapter;
+    use genatp_core::page_adapter::PageAdapter;
+    use genatp_core::perception_bridge::raw_tree_from_accessibility;
+    use genatp_perception::{RefMap, StripPolicy, strip};
+
+    // ── Load cassette ────────────────────────────────────────────────
     let root =
         genatp_cassette::cassettes_dir().map_err(|e| anyhow::anyhow!("cassette storage: {e}"))?;
 
@@ -473,53 +516,166 @@ fn run_replay(slug: String, version: Option<String>) -> anyhow::Result<()> {
     let cassette = genatp_cassette::load(&path, &verifying_key)
         .map_err(|e| anyhow::anyhow!("load failed: {e}"))?;
 
+    let step_count = cassette.steps.len();
     println!(
-        "Cassette: {} v{} — replaying {} steps without LLM calls...",
-        cassette.header.slug,
-        cassette.header.version,
-        cassette.steps.len()
+        "Cassette: {} v{} — live replay with browser",
+        cassette.header.slug, cassette.header.version,
     );
     println!("  Goal:       {}", cassette.header.goal);
     println!("  Start URL:  {}", cassette.header.start_url);
+    println!("  Steps:      {step_count} (zero LLM calls)");
     println!();
 
-    // Phase 8: full replay with a live browser requires launching Chrome
-    // and building a ref resolver from the accessibility tree. For now we
-    // report what would happen; the library is ready (see `genatp-cassette`
-    // crate and its tests).
-    println!("  ⚠  Full deterministic replay requires a running browser.");
-    println!("     The `genatp-cassette` replay engine is production-ready:");
-    println!("     - Zero LLM calls: actions execute directly from the cassette");
-    println!("     - Ref resolver: Click/Fill actions need live page refs");
-    println!("     - URL tracking: each step checks URL matches recording");
-    println!();
-    println!(
-        "  Use `genatp cassette inspect {}` to see the steps.",
-        cassette.header.slug
-    );
-    println!();
+    let replayer = genatp_cassette::CassetteReplayer::new(cassette);
 
-    // Print a dry-run of what would happen.
-    let mut succeeded = 0u32;
-    let mut failed = 0u32;
-    for step in &cassette.steps {
-        let needs_ref = matches!(
-            &step.action,
-            genatp_core::action::Action::Click { .. } | genatp_core::action::Action::Fill { .. }
-        );
-        if needs_ref {
-            failed += 1;
-            println!(
-                "  [{:>2}] ⚠ {:?} — needs ref resolver",
-                step.seq, step.action
-            );
-        } else {
-            succeeded += 1;
-            println!("  [{:>2}] ✓ {:?}", step.seq, step.action);
-        }
+    // ── Launch browser ───────────────────────────────────────────────
+    let mut launch = LaunchOptions::default();
+    launch.headless = if headed {
+        HeadlessMode::Visible
+    } else {
+        HeadlessMode::New
+    };
+    if let Some(path) = chrome_path {
+        launch.chrome_executable = Some(path);
     }
-    println!();
-    println!("  Dry-run: {succeeded} would succeed, {failed} would need a ref resolver");
+    let pool_cfg = PoolConfig::default()
+        .launch(launch)
+        .max_concurrency(1)
+        .disable_stealth();
+    let pool = BrowserPool::new(pool_cfg);
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    rt.block_on(async move {
+        // ── Helper: build ref map from current page state ──────────────
+        async fn build_ref_map(
+            adapter: &dyn BrowserAdapter,
+        ) -> anyhow::Result<HashMap<String, String>> {
+            let url = adapter
+                .current_url()
+                .await
+                .unwrap_or(None)
+                .unwrap_or_default();
+            let tree = adapter.accessibility().await?;
+            let raw = raw_tree_from_accessibility(&url, &tree);
+            let stripped = strip(&raw, &StripPolicy::default());
+            let mut refmap = RefMap::new();
+            let node_to_ref = refmap.assign_for_tree(&stripped);
+
+            let a11y_to_backend: HashMap<String, String> = tree
+                .nodes()
+                .iter()
+                .filter_map(|n| {
+                    n.backend_dom_node_id
+                        .map(|b| (n.node_id.clone(), b.to_string()))
+                })
+                .collect();
+
+            let ref_to_backend: HashMap<String, String> = node_to_ref
+                .iter()
+                .filter_map(|(a11y_id, r)| {
+                    a11y_to_backend.get(a11y_id).map(|b| (r.clone(), b.clone()))
+                })
+                .collect();
+
+            Ok(ref_to_backend)
+        }
+
+        // Acquire page
+        let page_guard = pool
+            .acquire()
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to acquire browser page: {e}"))?;
+        let adapter = PageAdapter::new(page_guard.page().clone());
+        println!("  ✓ Browser launched");
+
+        // Navigate to start URL
+        let start_url = replayer.cassette().header.start_url.clone();
+        adapter
+            .navigate(&start_url)
+            .await
+            .map_err(|e| anyhow::anyhow!("navigation to {start_url} failed: {e}"))?;
+        let current_url = adapter
+            .current_url()
+            .await
+            .unwrap_or(None)
+            .unwrap_or_default();
+        println!("  ✓ Navigated to {current_url}");
+        println!();
+
+        // ── Execute steps ────────────────────────────────────────────
+        let mut succeeded = 0u32;
+        let mut failed = 0u32;
+        let mut ref_to_backend: HashMap<String, String> = HashMap::new();
+
+        for step in &replayer.cassette().steps {
+            // Refresh ref resolver before steps that need element refs
+            let needs_ref = matches!(&step.action, Action::Click { .. } | Action::Fill { .. });
+            if needs_ref {
+                match build_ref_map(&adapter).await {
+                    Ok(map) => ref_to_backend = map,
+                    Err(e) => {
+                        eprintln!("  [{:>2}] ⚠ snapshot failed: {e}", step.seq);
+                    }
+                }
+            }
+
+            let result = replayer
+                .execute_step(
+                    &adapter,
+                    &|ref_str| ref_to_backend.get(ref_str).cloned(),
+                    step,
+                )
+                .await
+                .unwrap_or_else(|e| genatp_cassette::ReplayStepResult {
+                    seq: step.seq,
+                    action: step.action.clone(),
+                    status: genatp_cassette::ReplayStepStatus::Failed {
+                        reason: e.to_string(),
+                    },
+                    url: step.url.clone(),
+                });
+
+            match &result.status {
+                genatp_cassette::ReplayStepStatus::Success { url_matches } => {
+                    succeeded += 1;
+                    let url_flag = if *url_matches {
+                        String::new()
+                    } else {
+                        format!(" (URL: {} → {})", step.url, result.url.as_str())
+                    };
+                    println!("  [{:>2}] ✓ {:?}{}", step.seq, step.action, url_flag);
+                }
+                genatp_cassette::ReplayStepStatus::Failed { reason } => {
+                    failed += 1;
+                    println!("  [{:>2}] ✗ {:?} — {}", step.seq, step.action, reason);
+                }
+            }
+
+            if matches!(result.action, Action::Finish { .. }) {
+                break;
+            }
+        }
+
+        // ── Cleanup ──────────────────────────────────────────────────
+        drop(adapter);
+        page_guard.close().await.unwrap_or_else(|e| {
+            eprintln!("  ⚠ page close: {e}");
+        });
+        pool.shutdown().await.unwrap_or_else(|e| {
+            eprintln!("  ⚠ browser shutdown: {e}");
+        });
+
+        println!();
+        println!("  Result: {succeeded} succeeded, {failed} failed");
+        if failed == 0 {
+            println!("  ✓ All steps replayed successfully (zero LLM tokens)");
+        }
+
+        Ok::<(), anyhow::Error>(())
+    })?;
 
     Ok(())
 }
@@ -1012,7 +1168,13 @@ mod tests {
         let cli = Cli::try_parse_from(["genatp", "cassette", "replay", "my-slug"]).unwrap();
         match cli.command {
             Some(Command::Cassette {
-                action: CassetteAction::Replay { slug, version },
+                action:
+                    CassetteAction::Replay {
+                        slug,
+                        version,
+                        headed: _,
+                        chrome_path: _,
+                    },
             }) => {
                 assert_eq!(slug, "my-slug");
                 assert!(version.is_none());
@@ -1091,7 +1253,13 @@ mod tests {
         .unwrap();
         match cli.command {
             Some(Command::Cassette {
-                action: CassetteAction::Replay { slug, version },
+                action:
+                    CassetteAction::Replay {
+                        slug,
+                        version,
+                        headed: _,
+                        chrome_path: _,
+                    },
             }) => {
                 assert_eq!(slug, "my-slug");
                 assert_eq!(version, Some("1.1.0".into()));

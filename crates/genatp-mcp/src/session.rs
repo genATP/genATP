@@ -82,6 +82,8 @@ pub struct SessionConfig {
     /// Headless mode toggle. Defaults to `true` so the server can run
     /// in CI / Docker without a display server.
     pub headless: bool,
+    /// Explicit path to the Chrome / Chromium executable.
+    pub chrome_path: Option<PathBuf>,
     /// User-data directory. `None` uses a fresh temp directory each run
     /// (recommended for ephemeral MCP sessions); pass `Some(path)` to
     /// reuse cookies / localStorage across runs.
@@ -104,6 +106,7 @@ impl std::fmt::Debug for SessionConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SessionConfig")
             .field("headless", &self.headless)
+            .field("chrome_path", &self.chrome_path)
             .field("user_data_dir", &self.user_data_dir)
             .field("pool_capacity", &self.pool_capacity)
             .field("vault_path", &self.vault_path)
@@ -120,6 +123,7 @@ impl Default for SessionConfig {
     fn default() -> Self {
         Self {
             headless: true,
+            chrome_path: None,
             user_data_dir: None,
             pool_capacity: 1,
             vault_path: None,
@@ -178,16 +182,18 @@ impl McpSession {
     /// # Errors
     /// Returns [`McpError::Browser`] if the pool fails to initialise
     /// (e.g. invalid Chrome path).
+    #[allow(clippy::field_reassign_with_default)]
     pub async fn new(cfg: SessionConfig) -> Result<Self> {
-        let launch = LaunchOptions {
-            headless: if cfg.headless {
-                HeadlessMode::New
-            } else {
-                HeadlessMode::Visible
-            },
-            user_data_dir: cfg.user_data_dir.clone(),
-            ..LaunchOptions::default()
+        let mut launch = LaunchOptions::default();
+        launch.headless = if cfg.headless {
+            HeadlessMode::New
+        } else {
+            HeadlessMode::Visible
         };
+        launch.user_data_dir = cfg.user_data_dir.clone();
+        if let Some(path) = &cfg.chrome_path {
+            launch.chrome_executable = Some(path.clone());
+        }
         let pool_cfg = PoolConfig {
             launch,
             ..PoolConfig::default()

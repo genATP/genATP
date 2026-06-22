@@ -217,7 +217,7 @@ impl CassetteReplayer {
     }
 
     /// Execute a single cassette step against the browser.
-    async fn execute_step<F>(
+    pub async fn execute_step<F>(
         &self,
         adapter: &dyn BrowserAdapter,
         ref_resolver: &F,
