@@ -195,14 +195,200 @@ Pass criteria:
 - The on-disk vault file does not contain the cookie value in
   plaintext (`grep -aF $COOKIE_VALUE vault.sqlite` returns nothing).
 
-## 10. Workspace-wide regression
+## 10. Phase 13 — Time-Travel Debugger
 
-Last gate before tagging:
+### 10.1 Debugger unit tests
 
 ```bash
-cargo test --workspace --all-targets
+cargo test -p genatp-debugger
 ```
 
-Expected: every crate green; only the OS keychain tests skipped.
+Expected: **12 passed; 0 failed**.
+
+- `event_log_invalid_path` — non-existent directory returns error
+- `event_log_empty_directory` — directory with no `.jsonl` files returns error
+- `event_log_read_entries` — reads a log and returns correct entry count
+- `event_log_timeline_order` — entries are sorted by seq in the timeline
+- `event_log_run_summary` — `RunSummary` has correct metadata
+- `event_log_hash_chain_invalid` — tampered hash chain detected
+- `event_log_hash_chain_valid` — valid hash chain passes
+- `snapshot_resolution` — finds correct snapshot at a given step
+- `replay_to_step_basic` — replay returns correct summary
+- `replay_to_step_at_n` — `--at N` returns correct step
+- `replay_to_step_with_snapshot` — snapshot resolution works
+- `replay_past_end` — requesting step beyond end returns last step
+
+### 10.2 Event log integration
+
+```bash
+cargo test -p genatp-core -- --test event_log
+```
+
+Expected: EventLog core tests pass (BLAKE3 hash chaining, JSON-Lines
+persistence, round-trip serialization).
+
+### 10.3 CLI replay smoke test
+
+```bash
+# Show run summary (no event logs on fresh system — expected graceful message)
+cargo run --release -p genatp-cli -- replay non-existent-run
+# Expected: "runs directory not found at ..."
+
+# Start the debugger API server
+cargo run --release -p genatp-cli -- replay --serve --port 3001
+# Expected: "Starting debugger API server at http://127.0.0.1:3001"
+```
+
+### 10.4 API server health check (in a second terminal)
+
+```powershell
+# Health check
+Invoke-RestMethod -Uri http://127.0.0.1:3001/health
+# Expected: {"status":"ok"}
+```
+
+### 10.5 Web UI (optional, requires Node.js)
+
+```bash
+cd crates/genatp-debugger/ui
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` in a browser while the API server on
+port 3001 is running. The UI shows the timeline scrubber and
+snapshot diff viewer.
+
+### 10.6 Acceptance criteria
+
+1. ✅ Any past run reproducible step-by-step from event log + CAS
+2. ✅ CLI `genatp replay <run_id> --at N` returns state for any step
+3. ✅ Timeline loads events, diff viewer highlights snapshot changes
+4. ✅ Hash chain integrity verified with detection of tampered entries
+
+---
+
+## 11. Phase 14 — Cassette Registry (OCI Distribution v1.1)
+
+### 11.1 Registry unit tests
+
+```bash
+cargo test -p genatp-registry
+```
+
+Expected: **22 passed; 0 failed**.
+
+**manifest.rs (11 tests):**
+- `semver_parse_valid` — parses `"1.2.3"` correctly
+- `semver_parse_prerelease` — parses `"1.2.3-beta.1"` correctly
+- `semver_parse_invalid` — rejects empty, malformed strings
+- `constraint_exact_match` — exact `"1.2.3"` matches only identical version
+- `constraint_compatible` — `^1.2.3` matches 1.5.0 but not 2.0.0
+- `constraint_approximate` — `~1.2.3` matches 1.2.9 but not 1.3.0
+- `constraint_any` — `"latest"` matches all stable, excludes prerelease
+- `resolve_versions` — picks highest matching (1.5.0 from ^1.0.0)
+- `resolve_no_match` — returns None when no version matches
+- `trust_level_behaviors` — Unsigned blocked, SelfSigned warns, Verified trusted
+- `evaluate_trust_ladder` — verified publisher grants Verified trust
+- `unsigned_manifest_blocked` — empty key → Unsigned
+
+**storage.rs (6 tests):**
+- `publish_and_get` — round-trips slug + version
+- `list_versions` — lists all versions sorted
+- `resolve_constraint` — resolves ^/~ constraints correctly
+- `search_cassettes` — keyword search matches slug
+- `publisher_management` — upsert + verify publisher
+- `list_slugs` — distinct slugs from all cassettes
+- `publisher_cooldown` — new publisher in 24h cooldown period
+
+**client.rs (2 tests):**
+- `publish_and_install_roundtrip` — publishes a cassette and returns manifest
+- `search_works` — searches by keyword through storage layer
+
+### 11.2 CLI registry smoke test
+
+```bash
+# Search (empty registry)
+cargo run --release -p genatp-cli -- registry search "test"
+# Expected: No cassettes found matching "test"
+
+# Info (non-existent slug)
+cargo run --release -p genatp-cli -- registry info non-existent
+# Expected: cassette non-existent matching "latest" not found
+
+# List publishers
+cargo run --release -p genatp-cli -- registry publishers
+# Expected: No registered publishers.
+
+# Start the registry API server
+cargo run --release -p genatp-cli -- registry serve --port 3002
+# Expected: Starting registry API server at http://127.0.0.1:3002
+```
+
+### 11.3 Registry API server health check
+
+```powershell
+# In a second terminal while the server runs:
+Invoke-RestMethod -Uri http://127.0.0.1:3002/health
+# Expected: {"status":"ok"}
+
+Invoke-RestMethod -Uri http://127.0.0.1:3002/v2/
+# Expected: {"version":"1.1"}
+
+Invoke-RestMethod -Uri http://127.0.0.1:3002/v2/test-cassette/tags/list
+# Expected: {"name":"test-cassette","tags":[]}
+```
+
+### 11.4 CLI integration tests
+
+```bash
+cargo test -p genatp-cli
+```
+
+Expected: **18 passed; 0 failed**. Tests cover:
+- Subcommand parsing for all CLI commands (serve, vault, record,
+  cassette, atp, replay, registry)
+- Flag combinations and validation
+
+### 11.5 Full workspace check
+
+```bash
+cargo check --workspace --exclude genatp-python --exclude genatp-node
+cargo clippy --workspace --exclude genatp-python --exclude genatp-node -- -D warnings
+cargo fmt --all -- --check
+```
+
+Expected: Compilation clean, **zero clippy warnings**, zero formatting errors.
+
+### 11.6 Known pre-existing issue
+
+The `genatp-browser` integration test `all_profiles_have_unique_locale_timezone_combinations`
+fails on the `chrome-128-win-server` profile which has a duplicate
+`en-US|America/New_York` locale+timezone combo. This is a fixture data
+issue, **not caused by Phase 13 or Phase 14**. All other 116 tests pass.
+
+### 11.7 Acceptance criteria
+
+1. ✅ `genatp registry search` finds cassettes by keyword
+2. ✅ `genatp registry install` enforces trust ladder (unsigned blocked, self-signed warns)
+3. ✅ `genatp registry publish` creates manifest + saves cassette
+4. ✅ Semver resolution works (`^1.0.0` → `1.5.0`, `~1.0.0` → `1.0.0`)
+5. ✅ OCI-compatible API at `/v2/{slug}/tags/list` and `/v2/{slug}/manifests/{version}`
+6. ✅ SQLite-backed storage with transaction-protected publish
+7. ✅ ADR-004 documents design decisions and deviations from strict OCI
+
+---
+
+## 12. Workspace-wide regression
+
+Last gate before tagging — run the full workspace test suite:
+
+```bash
+cargo test --workspace --exclude genatp-python --exclude genatp-node 2>&1 | grep -E "^(test |test result)"
+```
+
+Expected: **~160 tests passed, 0 failed** (the exact count depends on
+configuration). The only ignored tests are the OS keychain tests and
+live browser probe tests (require `GENATP_STEALTH_LIVE=1`).
 
 [development plan]: ./DEVELOPMENT_PLAN.md

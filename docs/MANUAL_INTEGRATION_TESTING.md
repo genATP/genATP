@@ -1573,6 +1573,14 @@ differences:
 | Inspect cassette | `cargo run -p genatp-cli -- cassette inspect <slug>` |
 | Replay cassette | `cargo run -p genatp-cli -- cassette replay <slug>` |
 | Bootstrap example | `cargo run --example bootstrap_cassette -p genatp-cassette` |
+| Replay debugger | `cargo run -p genatp-cli -- replay <run-id>` |
+| Start debugger API | `cargo run -p genatp-cli -- replay --serve --port 3001` |
+| Search registry | `cargo run -p genatp-cli -- registry search <query>` |
+| Install from registry | `cargo run -p genatp-cli -- registry install <slug>` |
+| Publish to registry | `cargo run -p genatp-cli -- registry publish <path> <publisher>` |
+| Start registry API | `cargo run -p genatp-cli -- registry serve --port 3002` |
+| Registry info | `cargo run -p genatp-cli -- registry info <slug>` |
+| List publishers | `cargo run -p genatp-cli -- registry publishers` |
 | Vault reset (Windows) | `Remove-Item "$env:APPDATA\genatp\genatp\data\vault.sqlite"` (see §6.2) |
 | Vault reset (macOS) | `rm ~/Library/Application\ Support/genatp/genatp/data/vault.sqlite` |
 | Vault reset (Linux) | `rm ~/.local/share/genatp/genatp/data/vault.sqlite` |
