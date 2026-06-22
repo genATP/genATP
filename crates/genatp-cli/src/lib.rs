@@ -66,6 +66,8 @@ pub enum Command {
         #[command(subcommand)]
         action: AtpAction,
     },
+    /// Replay a past run from its event log (time-travel debugger).
+    Replay(ReplayArgs),
 }
 
 /// Subcommands under `genatp atp`.
@@ -155,6 +157,28 @@ pub enum CassetteAction {
         #[arg(long)]
         version: Option<String>,
     },
+}
+
+/// Arguments for `genatp replay` (time-travel debugger).
+#[derive(Debug, clap::Args)]
+pub struct ReplayArgs {
+    /// Run identifier (event log filename stem).
+    pub run_id: String,
+    /// Step sequence number to show (default: last).
+    #[arg(long, short = 'a')]
+    pub at: Option<u64>,
+    /// Launch an interactive API server for the web UI.
+    #[arg(long)]
+    pub serve: bool,
+    /// Port for the API server.
+    #[arg(long, default_value_t = 3001)]
+    pub port: u16,
+    /// Path to snapshot CAS store.
+    #[arg(long = "snapshot-store")]
+    pub snapshot_store_path: Option<PathBuf>,
+    /// Path to runs directory.
+    #[arg(long = "runs-dir")]
+    pub runs_dir: Option<PathBuf>,
 }
 
 /// Arguments for `genatp serve`.
@@ -252,6 +276,13 @@ pub fn run() -> i32 {
             Ok(()) => 0,
             Err(e) => {
                 eprintln!("genatp: atp failed: {e:#}");
+                1
+            }
+        },
+        Some(Command::Replay(args)) => match run_debugger_replay(args) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: replay failed: {e:#}");
                 1
             }
         },
@@ -468,6 +499,106 @@ fn run_atp(action: AtpAction) -> anyhow::Result<()> {
             Ok(())
         }
     }
+}
+
+fn run_debugger_replay(args: ReplayArgs) -> anyhow::Result<()> {
+    // Determine the runs directory.
+    let base_dir = if let Some(runs_dir) = &args.runs_dir {
+        runs_dir.clone()
+    } else {
+        let data_dir = directories::BaseDirs::new()
+            .map(|d| d.data_dir().join("genatp"))
+            .unwrap_or_else(|| PathBuf::from("./genatp-data"));
+        data_dir.join("runs")
+    };
+
+    if !base_dir.exists() {
+        eprintln!("genatp: runs directory not found at {}", base_dir.display());
+        eprintln!(
+            "  No event logs exist — run a task first using `genatp record` or the MCP server."
+        );
+        return Ok(());
+    }
+
+    // Optionally open snapshot store.
+    let snapshot_store = match &args.snapshot_store_path {
+        Some(path) => match genatp_perception::SnapshotStore::open(path) {
+            Ok(store) => Some(std::sync::Arc::new(std::sync::Mutex::new(store))),
+            Err(e) => {
+                eprintln!(
+                    "genatp: warning: could not open snapshot store at {}: {e}",
+                    path.display()
+                );
+                eprintln!(
+                    "  Continuing without snapshot resolution — snapshots will show hashes only."
+                );
+                None
+            }
+        },
+        None => None,
+    };
+
+    if args.serve {
+        // Launch the debugger API server.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        rt.block_on(async move {
+            let state = genatp_debugger::api::AppState {
+                runs_dir: base_dir,
+                snapshot_store,
+            };
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], args.port));
+            println!("Starting debugger API server at http://{addr}");
+            println!("  Open http://localhost:{}/runs to see all runs", args.port);
+            println!("  Use --at N to replay a specific step from the CLI.");
+            genatp_debugger::api::serve(state, &addr).await?;
+            Ok::<(), anyhow::Error>(())
+        })?;
+    } else {
+        // CLI replay mode.
+        use genatp_debugger::replay_to_step;
+        let result = replay_to_step(&base_dir, &args.run_id, args.at)?;
+
+        println!(
+            "Run: {} ({} entries, {} steps, outcome: {})",
+            result.summary.id,
+            result.summary.entry_count,
+            result.summary.step_count,
+            result.summary.outcome,
+        );
+        println!("Hash chain valid: {}", result.summary.hash_chain_valid);
+        if let Some(bad) = result.summary.first_bad_seq {
+            println!("  ⚠ First bad entry at seq {bad}");
+        }
+        println!("Goal: {}", result.summary.goal);
+        println!();
+
+        if let Some(step) = &result.current_step {
+            println!("Current step [{}]", step.seq);
+            println!("  Type:     {}", step.event_type);
+            println!("  Time:     {}", step.at);
+            println!("  Summary:  {}", step.summary);
+            if let Some(hash) = &step.snapshot_hash {
+                println!("  Snapshot: {hash}");
+            }
+            if let Some(desc) = &step.action_description {
+                println!("  Action:   {desc}");
+            }
+        } else {
+            println!("No events found at the requested step.");
+        }
+
+        if !result.is_at_end {
+            println!();
+            println!(
+                "Use `--at {}` to advance to the next step.",
+                result.current_step.as_ref().map(|s| s.seq + 1).unwrap_or(0)
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn run_vault(action: VaultAction) -> anyhow::Result<()> {

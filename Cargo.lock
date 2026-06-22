@@ -1193,11 +1193,14 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "directories 5.0.1",
  "genatp-atp-spec",
  "genatp-browser",
  "genatp-cassette",
  "genatp-core",
+ "genatp-debugger",
  "genatp-mcp",
+ "genatp-perception",
  "genatp-vault",
  "serde",
  "serde_json",
@@ -1232,6 +1235,23 @@ dependencies = [
 [[package]]
 name = "genatp-debugger"
 version = "0.7.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "blake3",
+ "chrono",
+ "genatp-core",
+ "genatp-perception",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower-http",
+ "tracing",
+]
 
 [[package]]
 name = "genatp-llm"
