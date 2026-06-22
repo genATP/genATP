@@ -41,7 +41,7 @@ pub fn discover_runs(runs_dir: &Path) -> Result<BTreeMap<String, Vec<EventEntry>
             source: e,
         })?;
         let path = entry.path();
-        if path.extension().map_or(true, |ext| ext != "jsonl") {
+        if path.extension().is_none_or(|ext| ext != "jsonl") {
             continue;
         }
 
@@ -106,7 +106,7 @@ pub fn get_step(entries: &[EventEntry], seq: u64) -> Option<StepDetail> {
     entries
         .iter()
         .find(|e| e.seq == seq)
-        .map(|entry| StepDetail::from_entry(entry))
+        .map(StepDetail::from_entry)
 }
 
 /// Get the step index closest to a given sequence number.
@@ -132,16 +132,15 @@ pub fn find_snapshot_at_step(entries: &[EventEntry], target_seq: u64) -> Option<
     // Walk backwards from target to find the nearest Snapshot event.
     let mut search_idx = entries.partition_point(|e| e.seq <= target_seq);
     if search_idx > 0 {
-        search_idx -= 1;
+        search_idx = search_idx.saturating_sub(1);
     }
     for entry in entries[..=search_idx].iter().rev() {
         if let Event::Snapshot {
             ref snapshot_hash, ..
         } = entry.event
+            && !snapshot_hash.is_empty()
         {
-            if !snapshot_hash.is_empty() {
-                return Some(snapshot_hash.clone());
-            }
+            return Some(snapshot_hash.clone());
         }
     }
     None

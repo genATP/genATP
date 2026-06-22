@@ -68,6 +68,55 @@ pub enum Command {
     },
     /// Replay a past run from its event log (time-travel debugger).
     Replay(ReplayArgs),
+    /// Manage the cassette registry (search, install, publish).
+    Registry {
+        #[command(subcommand)]
+        action: RegistryAction,
+    },
+}
+
+/// Subcommands under `genatp registry`.
+#[derive(Debug, Subcommand)]
+pub enum RegistryAction {
+    /// Search cassettes in the registry by keyword.
+    Search {
+        /// Search query.
+        query: String,
+    },
+    /// Show information about a cassette.
+    Info {
+        /// Cassette slug.
+        slug: String,
+        /// Version constraint (default: latest).
+        #[arg(default_value = "latest")]
+        version: String,
+    },
+    /// Install a cassette from the registry.
+    Install {
+        /// Cassette slug.
+        slug: String,
+        /// Version constraint (default: latest).
+        #[arg(default_value = "latest")]
+        version: String,
+        /// Skip confirmation prompt for self-signed cassettes.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Publish a cassette to the registry.
+    Publish {
+        /// Path to the cassette file.
+        path: std::path::PathBuf,
+        /// Publisher slug.
+        publisher: String,
+    },
+    /// List all registered publishers.
+    Publishers,
+    /// Start the registry API server.
+    Serve {
+        /// Port to serve on.
+        #[arg(long, default_value_t = 3002)]
+        port: u16,
+    },
 }
 
 /// Subcommands under `genatp atp`.
@@ -283,6 +332,13 @@ pub fn run() -> i32 {
             Ok(()) => 0,
             Err(e) => {
                 eprintln!("genatp: replay failed: {e:#}");
+                1
+            }
+        },
+        Some(Command::Registry { action }) => match run_registry(action) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: registry failed: {e:#}");
                 1
             }
         },
@@ -599,6 +655,151 @@ fn run_debugger_replay(args: ReplayArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn run_registry(action: RegistryAction) -> anyhow::Result<()> {
+    match action {
+        RegistryAction::Search { query } => {
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            let results = genatp_registry::search(&store, &query)?;
+
+            if results.is_empty() {
+                println!("No cassettes found matching \"{query}\"");
+            } else {
+                let slugs: std::collections::BTreeSet<&str> =
+                    results.iter().map(|m| m.slug.as_str()).collect();
+                println!("Found {} cassette(s):", slugs.len());
+                for slug in &slugs {
+                    let versions: Vec<&str> = results
+                        .iter()
+                        .filter(|m| m.slug == *slug)
+                        .map(|m| m.version.as_str())
+                        .collect();
+                    let m = results.iter().find(|m| m.slug == *slug).unwrap();
+                    println!(
+                        "  {slug} ({}) — {} — {} step(s)",
+                        versions.join(", "),
+                        m.publisher,
+                        m.step_count
+                    );
+                }
+            }
+            Ok(())
+        }
+        RegistryAction::Info { slug, version } => {
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            let manifest = store.resolve(&slug, &version)?;
+            match manifest {
+                Some(m) => {
+                    println!("{}", genatp_registry::format_manifest_info(&m));
+                    Ok(())
+                }
+                None => {
+                    eprintln!("cassette {slug} matching \"{version}\" not found");
+                    Ok(())
+                }
+            }
+        }
+        RegistryAction::Install { slug, version, yes } => {
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            match genatp_registry::install(&store, &slug, &version, yes) {
+                Ok(installed) => {
+                    println!("{}", genatp_registry::format_install_info(&installed));
+                    println!("Use `genatp cassette inspect {}` to see the steps.", slug);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("install failed: {e}");
+                    if format!("{e}").contains("requires confirmation") {
+                        eprintln!("  Pass `--yes` to confirm self-signed installation.");
+                    }
+                    Ok(())
+                }
+            }
+        }
+        RegistryAction::Publish { path, publisher } => {
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            let signing_key = genatp_cassette::signing::load_signing_key()
+                .map_err(|e| anyhow::anyhow!("cannot load signing key: {e}"))?;
+            let verifying_key = signing_key.verifying_key();
+
+            let cassette_bytes = std::fs::read(&path)?;
+            let cassette: genatp_cassette::Cassette = serde_json::from_slice(&cassette_bytes)
+                .map_err(|e| anyhow::anyhow!("invalid cassette JSON: {e}"))?;
+
+            let manifest = genatp_registry::publish(
+                &store,
+                &cassette,
+                &publisher,
+                &signing_key,
+                &verifying_key,
+            )?;
+            println!(
+                "Published {}@{} from {}",
+                manifest.slug,
+                manifest.version,
+                path.display()
+            );
+            Ok(())
+        }
+        RegistryAction::Publishers => {
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            let publishers = genatp_registry::list_publishers(&store)?;
+            if publishers.is_empty() {
+                println!("No registered publishers.");
+            } else {
+                println!("{:<30} {:>8}  verified", "slug", "cassettes");
+                for p in &publishers {
+                    println!(
+                        "{:<30} {:>8}  {}",
+                        p.slug,
+                        p.cassette_count,
+                        if p.verified {
+                            "✓ verified"
+                        } else {
+                            "self-signed"
+                        }
+                    );
+                }
+            }
+            Ok(())
+        }
+        RegistryAction::Serve { port } => {
+            use genatp_registry::api::AppState;
+
+            let db_path = genatp_registry::default_registry_dir()?.join("registry.db");
+            let store = genatp_registry::RegistryStore::open(&db_path)?;
+            let blob_dir = genatp_registry::default_registry_dir()?.join("blobs");
+            std::fs::create_dir_all(&blob_dir)?;
+
+            let state = AppState {
+                store: std::sync::Arc::new(std::sync::Mutex::new(store)),
+                blob_dir,
+                known_publishers: genatp_registry::list_publishers(
+                    &genatp_registry::RegistryStore::open(&db_path)?,
+                )?,
+            };
+
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(async move {
+                let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+                println!("Starting registry API server at http://{addr}");
+                println!("  OCI API:   http://localhost:{port}/v2/");
+                println!("  Search:    http://localhost:{port}/search?q=<query>");
+                println!("  Health:    http://localhost:{port}/health");
+                genatp_registry::api::serve(state, &addr).await?;
+                Ok::<(), anyhow::Error>(())
+            })?;
+            Ok(())
+        }
+    }
 }
 
 fn run_vault(action: VaultAction) -> anyhow::Result<()> {

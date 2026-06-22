@@ -1201,6 +1201,7 @@ dependencies = [
  "genatp-debugger",
  "genatp-mcp",
  "genatp-perception",
+ "genatp-registry",
  "genatp-vault",
  "serde",
  "serde_json",
@@ -1358,6 +1359,28 @@ dependencies = [
 [[package]]
 name = "genatp-registry"
 version = "0.7.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "blake3",
+ "chrono",
+ "directories 5.0.1",
+ "ed25519-dalek",
+ "genatp-cassette",
+ "genatp-core",
+ "hex",
+ "proptest",
+ "rand 0.8.6",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "zstd",
+]
 
 [[package]]
 name = "genatp-vault"

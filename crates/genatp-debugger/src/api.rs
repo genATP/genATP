@@ -121,10 +121,7 @@ async fn get_timeline(State(state): State<AppState>, Path(id): Path<String>) -> 
         }
     };
 
-    let timeline: Vec<TimelineEvent> = entries
-        .iter()
-        .filter_map(|entry| build_timeline_event(entry))
-        .collect();
+    let timeline: Vec<TimelineEvent> = entries.iter().filter_map(build_timeline_event).collect();
 
     (StatusCode::OK, Json(serde_json::json!(timeline)))
 }
@@ -406,7 +403,7 @@ fn build_timeline_event(entry: &EventEntry) -> Option<TimelineEvent> {
             at: entry.at,
             url: url.clone(),
             snapshot_hash: snapshot_hash.clone(),
-            token_estimate: token_estimate.clone(),
+            token_estimate: *token_estimate,
         }),
         Event::ActionRequested { action } => Some(TimelineEvent::Action {
             seq: entry.seq,
@@ -422,7 +419,7 @@ fn build_timeline_event(entry: &EventEntry) -> Option<TimelineEvent> {
             at: entry.at,
             action_type: action.tool_name().to_string(),
             summary: format!("{action:?}"),
-            success: Some(success.clone()),
+            success: Some(*success),
         }),
         Event::LlmRequest {
             provider, model, ..
@@ -462,7 +459,7 @@ fn build_timeline_event(entry: &EventEntry) -> Option<TimelineEvent> {
             seq: entry.seq,
             at: entry.at,
             outcome: outcome.clone(),
-            steps: steps.clone(),
+            steps: *steps,
         }),
         // Skip LlmError and PolicyDecision for the condensed timeline.
         Event::LlmError { .. } | Event::PolicyDecision { .. } => None,

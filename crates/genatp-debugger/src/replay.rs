@@ -64,7 +64,7 @@ pub fn replay_to_step(
 
     // Find the entry at or before target_seq.
     let current_entry = reader::find_nearest_step(&entries, target_seq);
-    let current_step = current_entry.map(|e| StepDetail::from_entry(e));
+    let current_step = current_entry.map(StepDetail::from_entry);
 
     let total_entries = entries.len() as u64;
     let is_at_end = current_entry

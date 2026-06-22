@@ -39,3 +39,4 @@ directories = { workspace = true }
 genatp-atp-spec = { path = "../genatp-atp-spec" }
 genatp-debugger = { path = "../genatp-debugger" }
 genatp-perception = { path = "../genatp-perception" }
+genatp-registry = { path = "../genatp-registry" }

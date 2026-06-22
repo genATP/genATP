@@ -14,3 +14,25 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+blake3 = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+rusqlite = { workspace = true }
+zstd = { workspace = true }
+ed25519-dalek = { workspace = true }
+directories = { workspace = true }
+genatp-cassette = { path = "../genatp-cassette" }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }
+genatp-core = { path = "../genatp-core" }
+rand = { workspace = true }
