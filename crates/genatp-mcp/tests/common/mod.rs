@@ -20,6 +20,8 @@ use axum::routing::get;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+use genatp_mcp::session::SessionConfig;
+
 static CHROME_TEST_LOCK: std::sync::LazyLock<Mutex<()>> =
     std::sync::LazyLock::new(|| Mutex::new(()));
 
@@ -128,6 +130,27 @@ fn load_fixture_files() -> HashMap<String, Vec<u8>> {
         }
     }
     out
+}
+
+/// Create a `SessionConfig` pinned to a temp `user_data_dir` outside any
+/// OneDrive / synced filesystem. Chrome on Windows sometimes fails with
+/// ExitStatus(21) when the user-data-dir is on a synced drive.
+///
+/// Mirrors `test_launch_options()` from the browser/core test suites.
+pub fn test_session_config() -> SessionConfig {
+    let tmp = std::env::temp_dir().join(format!(
+        "genatp-mcp-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    let _ = std::fs::create_dir_all(&tmp);
+    SessionConfig {
+        user_data_dir: Some(tmp),
+        ..SessionConfig::default()
+    }
 }
 
 pub fn chrome_available() -> bool {

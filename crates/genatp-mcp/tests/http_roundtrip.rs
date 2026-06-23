@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use common::{FixtureServer, chrome_available, chrome_test_guard};
-use genatp_mcp::{McpServer, McpSession, SessionConfig};
+use common::{FixtureServer, chrome_available, chrome_test_guard, test_session_config};
+use genatp_mcp::{McpServer, McpSession};
 
 async fn rpc_post(client: &reqwest::Client, base: &str, body: Value) -> Value {
     let resp = client
@@ -41,7 +41,7 @@ async fn http_transport_serves_initialize_and_tools_call() {
     let fixtures = FixtureServer::start().await;
     let url = fixtures.url("form.html");
 
-    let session = McpSession::new(SessionConfig::default()).await.unwrap();
+    let session = McpSession::new(test_session_config()).await.unwrap();
     let server = McpServer::new(session);
 
     // Bind on an ephemeral port and remember it.
@@ -141,7 +141,7 @@ async fn http_transport_serves_initialize_and_tools_call() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn http_healthz_returns_ok() {
     // This one doesn't need Chrome — pure HTTP smoke test.
-    let session = match McpSession::new(SessionConfig::default()).await {
+    let session = match McpSession::new(test_session_config()).await {
         Ok(s) => s,
         Err(_) => {
             eprintln!("session unavailable (no Chrome) — skipping HTTP healthz test");

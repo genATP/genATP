@@ -11,8 +11,8 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, duplex};
 
-use common::{FixtureServer, chrome_available, chrome_test_guard};
-use genatp_mcp::{McpServer, McpSession, SessionConfig};
+use common::{FixtureServer, chrome_available, chrome_test_guard, test_session_config};
+use genatp_mcp::{McpServer, McpSession};
 
 /// Helper: write one request, await one response. Panics on transport
 /// errors — the tests want to fail loudly.
@@ -62,7 +62,7 @@ async fn stdio_drives_every_tool_against_real_chrome() {
     let fixtures = FixtureServer::start().await;
     let form_url = fixtures.url("form.html");
 
-    let session = McpSession::new(SessionConfig::default())
+    let session = McpSession::new(test_session_config())
         .await
         .expect("session");
     let server = McpServer::new(session);
@@ -298,7 +298,7 @@ async fn stdio_unknown_tool_returns_json_rpc_error() {
         return;
     }
     let _chrome_lock = chrome_test_guard().await;
-    let session = McpSession::new(SessionConfig::default()).await.unwrap();
+    let session = McpSession::new(test_session_config()).await.unwrap();
     let server = McpServer::new(session);
 
     let (cli_in, srv_in) = duplex(8 * 1024);
