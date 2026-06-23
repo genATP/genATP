@@ -392,3 +392,7 @@ configuration). The only ignored tests are the OS keychain tests and
 live browser probe tests (require `GENATP_STEALTH_LIVE=1`).
 
 [development plan]: ./DEVELOPMENT_PLAN.md
+
+## Real-world prompt testing
+
+For end-user, prompt-only QA scenarios that mimic daily genATP usage, including a free NVIDIA NIM setup and token-count report workflow, see [Real-World Prompt Testing Guide](./REAL_WORLD_PROMPT_TESTING_GUIDE.md).
