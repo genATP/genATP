@@ -144,8 +144,12 @@ Each should show the subcommand-specific arguments and flags. **Exit code: 0**.
 ```powershell
 .\target\release\genatp.exe vault path
 # Expected: A Windows path like:
-# C:\Users\<YOUR_USERNAME>\AppData\Roaming\genatp\genatp\data\vault.sqlite
+# C:\Users\<YOUR_USERNAME>\AppData\Roaming\dev\genatp\genatp\data\vault.sqlite
 ```
+
+> **Note:** The actual path includes `dev` (the Rust-style reverse domain —
+> `directories::ProjectDirs::from("dev", "genatp", "genatp")`). On macOS/Linux
+> the path will be `~/.local/share/dev/genatp/genatp/data/vault.sqlite`.
 
 ### 3.4 Vault list (empty)
 
@@ -718,11 +722,14 @@ cargo run --release --example bootstrap_cassette -p genatp-cassette
 ```powershell
 # Use vault path to find the data directory
 $vaultPath = .\target\release\genatp.exe vault path 2>&1
-# Or check the standard location:
-$cassetteDir = "$env:APPDATA\genatp\genatp\data\cassettes\example-verify-title\versions"
+# Or check the standard location (note: includes `dev` in the path):
+$cassetteDir = "$env:APPDATA\dev\genatp\genatp\data\cassettes\example-verify-title\versions"
 Write-Output "Checking: $cassetteDir"
 Get-ChildItem $cassetteDir
 ```
+
+> **Tip:** Run `genatp vault path` once to confirm the actual data directory
+> on your machine — the cassette path is `<vault_parent>/cassettes/<slug>/versions/<version>.cassette`.
 
 **Tamper with the file:**
 
@@ -760,7 +767,12 @@ detection works, and restore succeeds.
 
 **Goal:** Verify cassette replay works without any LLM calls.
 
-### 10.1 Dry-run replay the cassette
+### 10.1 Replay the cassette live in browser
+
+> **Note:** This launches a headless Chrome browser, navigates to the
+> start URL, builds an accessibility ref resolver, and executes each
+> cassette step — all without any LLM calls. Close any other Chrome
+> instances first to avoid port conflicts.
 
 ```powershell
 .\target\release\genatp.exe cassette replay example-verify-title
@@ -768,19 +780,19 @@ detection works, and restore succeeds.
 
 **Expected output:**
 ```
-Cassette: example-verify-title v1.0.0 — replaying 1 steps without LLM calls...
+Cassette: example-verify-title v1.0.0 — live replay with browser
   Goal:       Verify the page title at https://example.com
   Start URL:  https://example.com
+  Steps:      2 (zero LLM calls)
 
-  ⚠  Full deterministic replay requires a running browser.
-     The `genatp-cassette` replay engine is production-ready:
-     - Zero LLM calls: actions execute directly from the cassette
-     - Ref resolver: Click/Fill actions need live page refs
-     - URL tracking: each step checks URL matches recording
+  ✓ Browser launched
+  ✓ Navigated to https://example.com/
 
-  [ 0] ✓ Navigate { url: "https://example.com" }
+  [ 1] ✓ Navigate { url: "https://example.com/" }
+  [ 2] ✓ Finish { reason: "Page title is 'Example Domain'" }
 
-  Dry-run: 1 would succeed, 0 would need a ref resolver
+  Result: 2 succeeded, 0 failed
+  ✓ All steps replayed successfully (zero LLM tokens)
 ```
 
 ### 10.2 Replay a specific version
@@ -808,6 +820,9 @@ zero LLM calls, automated tests pass.
 **Goal:** Verify the debugger can replay past runs and the API/UI works.
 
 ### 11.1 Start the debugger API server
+
+> **Note:** The `--serve` flag starts the API server in browse mode —
+> it shows all available runs, so no run ID is needed.
 
 **Open Terminal C (PowerShell) — keep Terminal A (MCP server) running:**
 
@@ -844,7 +859,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:3001/runs/non-existent
 
 ```powershell
 .\target\release\genatp.exe replay non-existent-run
-# Expected: Error — "runs directory not found at ..."
+# Expected: "runs directory not found at ..."
 ```
 
 ### 11.6 (Optional) Start the Web UI
@@ -1169,7 +1184,7 @@ Before marking the test run as complete, verify all scenarios pass:
 | 6 | Auth Vault save → list → revoke works | ☐ |
 | 7 | Cassette create → list → inspect works | ☐ |
 | 8 | Cassette tamper detection works | ☐ |
-| 9 | Cassette replay shows zero-LLM dry-run | ☐ |
+| 9 | Cassette replay shows zero-LLM live browser replay | ☐ |
 | 10 | Debugger API starts and responds | ☐ |
 | 11 | Registry API starts with OCI endpoint | ☐ |
 | 12 | Error handling returns clear messages | ☐ |

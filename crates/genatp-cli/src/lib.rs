@@ -224,8 +224,10 @@ pub enum CassetteAction {
 /// Arguments for `genatp replay` (time-travel debugger).
 #[derive(Debug, clap::Args)]
 pub struct ReplayArgs {
-    /// Run identifier (event log filename stem).
-    pub run_id: String,
+    /// Run identifier (event log filename stem). Required for CLI
+    /// replay mode. Optional in `--serve` mode — the API server serves
+    /// all available runs regardless.
+    pub run_id: Option<String>,
     /// Step sequence number to show (default: last).
     #[arg(long, short = 'a')]
     pub at: Option<u64>,
@@ -724,7 +726,10 @@ fn run_debugger_replay(args: ReplayArgs) -> anyhow::Result<()> {
         data_dir.join("runs")
     };
 
-    if !base_dir.exists() {
+    // In CLI replay mode (non-serve), report a helpful error if the runs
+    // directory doesn't exist yet. In --serve mode the API just shows an
+    // empty list, so we always proceed.
+    if !args.serve && !base_dir.exists() {
         eprintln!("genatp: runs directory not found at {}", base_dir.display());
         eprintln!(
             "  No event logs exist — run a task first using `genatp record` or the MCP server."
@@ -751,7 +756,8 @@ fn run_debugger_replay(args: ReplayArgs) -> anyhow::Result<()> {
     };
 
     if args.serve {
-        // Launch the debugger API server.
+        // Launch the debugger API server. Run ID is optional here — the
+        // API serves all available runs.
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
@@ -763,14 +769,19 @@ fn run_debugger_replay(args: ReplayArgs) -> anyhow::Result<()> {
             let addr = std::net::SocketAddr::from(([127, 0, 0, 1], args.port));
             println!("Starting debugger API server at http://{addr}");
             println!("  Open http://localhost:{}/runs to see all runs", args.port);
-            println!("  Use --at N to replay a specific step from the CLI.");
+            println!("  Use a run ID for CLI replay: genatp replay <RUN_ID> [--at N]");
             genatp_debugger::api::serve(state, &addr).await?;
             Ok::<(), anyhow::Error>(())
         })?;
     } else {
-        // CLI replay mode.
+        // CLI replay mode — run_id is required.
         use genatp_debugger::replay_to_step;
-        let result = replay_to_step(&base_dir, &args.run_id, args.at)?;
+        let run_id = args.run_id.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "a run ID is required for CLI replay mode\n  Usage: genatp replay <RUN_ID> [--at N]"
+            )
+        })?;
+        let result = replay_to_step(&base_dir, run_id, args.at)?;
 
         println!(
             "Run: {} ({} entries, {} steps, outcome: {})",
