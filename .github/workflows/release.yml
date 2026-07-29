@@ -87,7 +87,7 @@ jobs:
           Compress-Archive -Path $stage -DestinationPath "stage\genatp-${{ matrix.target }}.zip"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: genatp-${{ matrix.target }}
           path: stage/genatp-${{ matrix.target }}.${{ matrix.archive_ext }}
