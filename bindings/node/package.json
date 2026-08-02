@@ -46,7 +46,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.0",
+    "@napi-rs/cli": "^3.8.0",
     "vitest": "^1.6.0",
     "typescript": "^5.4.0"
   },
