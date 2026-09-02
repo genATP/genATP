@@ -1,14 +1,16 @@
-# Rust
+# ── Rust / Cargo ────────────────────────────────────────────────────────────
 /target/
 **/target/
+/target-*/
 **/*.rs.bk
 *.pdb
 Cargo.lock.bak
 
-# Cargo
+# Local Cargo overrides (machine-specific)
 .cargo/config.toml.local
+.cargo/config.local.toml
 
-# IDE
+# ── IDE / editor ────────────────────────────────────────────────────────────
 .idea/
 .vscode/*
 !.vscode/settings.json.example
@@ -16,10 +18,25 @@ Cargo.lock.bak
 *.iml
 *.swp
 *.swo
-.DS_Store
-Thumbs.db
+*~
 
-# Python
+# Cursor / local agent config (often contains API keys in mcp.json)
+.cursor/
+.code/
+.claude/
+
+# ── OS junk ─────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+# Accidental Windows NUL redirect artifact
+/nul
+/NUL
+
+# ── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -27,43 +44,90 @@ __pycache__/
 .Python
 build/
 dist/
+wheels/
 *.egg-info/
+.eggs/
 .venv/
 venv/
+.env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+*.pyo
 
-# Node
+# Maturin / PyO3 local build debris
+bindings/python/target/
+bindings/python/.venv/
+
+# ── Node / napi-rs ──────────────────────────────────────────────────────────
 node_modules/
 *.tsbuildinfo
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Build artifacts
-*.wheel
-*.whl
+# Native addon + packaging artifacts (built locally / CI)
 *.node
 *.tgz
+*.whl
+*.wheel
 
-# Local secrets / state — must never be committed
+# ── Local secrets / runtime state — never commit ────────────────────────────
 .env
 .env.*
 !.env.example
-~/.genatp/
+!.env.*.example
+
+# Repo-local genATP data (profiles, vault copies, cassette dumps)
+.genatp/
+**/.genatp/
 genatp-vault.db
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 *.cassette.local
 
-# Coverage
+# Local Chrome / CDP profiles created during tests
+**/chrome-profile*/
+**/genatp-profile*/
+**/user-data-dir/
+
+# direnv
+.envrc
+!.envrc.example
+.direnv/
+
+# ── Coverage / profiling ────────────────────────────────────────────────────
 *.profraw
 *.profdata
 coverage/
 lcov.info
+tarpaulin-report.html
+cobertura.xml
 
-# Fuzzing artifacts
+# ── Fuzzing ─────────────────────────────────────────────────────────────────
 fuzz/corpus/
 fuzz/artifacts/
 fuzz/coverage/
+
+# ── Misc scratch ────────────────────────────────────────────────────────────
 temp.txt
+*.tmp
+*.temp
+*.bak
+*.orig
