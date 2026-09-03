@@ -97,7 +97,7 @@ sha2 = "0.10"
 argon2 = "0.5"
 zeroize = { version = "1", features = ["derive"] }
 secrecy = "0.10"
-rand = "0.8"
+rand = "0.9"
 keyring = { version = "3", default-features = false, features = [
   "apple-native",
   "windows-native",
