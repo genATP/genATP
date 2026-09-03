@@ -1,4 +1,4 @@
-# genATP — Architecture
+# genATP — Architecture 
 
 This document describes the system architecture for genATP at v1.0. All diagrams use Mermaid so they render natively on GitHub.
 
