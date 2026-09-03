@@ -30,6 +30,7 @@
 pub mod api;
 pub mod client;
 pub mod error;
+pub mod keys;
 pub mod manifest;
 pub mod storage;
 
@@ -39,6 +40,9 @@ pub use client::{
     publish, search,
 };
 pub use error::{RegistryError, Result};
+pub use keys::{
+    PinnedKeys, load_bundled as load_pinned_keys, load_from_path as load_keys_from_path,
+};
 pub use manifest::{
     Capability, Publisher, RegistryManifest, Semver, TrustLevel, VersionConstraint,
     parse_constraint, resolve_version,

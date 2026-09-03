@@ -1,6 +1,6 @@
 {
   "name": "genatp",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "TypeScript/Node SDK for genATP — the unified web-access layer for AI agents.",
   "main": "index.js",
   "types": "index.d.ts",

@@ -60,7 +60,7 @@ genATP does not currently operate a paid bug bounty. We will publicly acknowledg
 
 - All releases are built by GitHub Actions from a tagged commit; the build provenance is attested via GitHub Artifact Attestations starting at v0.0.1 (Phase 0 produces unsigned artifacts; signing lands in Phase 16).
 - All releases publish a SHA256SUMS file alongside the artifacts.
-- All cassettes published via the official registry are signed with maintainer ed25519 keys; the public key set is pinned in `crates/genatp-registry/keys.toml`.
+- All cassettes published via the official registry are signed with maintainer ed25519 keys; the public key set is pinned in [`crates/genatp-registry/keys.toml`](./crates/genatp-registry/keys.toml) (empty until official keys are published — local registry trust still uses the SQLite publisher `verified` flag / trust ladder).
 - We use `cargo deny` and `cargo audit` on every PR to catch known-vulnerable transitive dependencies.
 
 ## Hardening notes for users
@@ -70,9 +70,10 @@ If you are running genATP in production:
 1. **Pin the version.** Update on a schedule, not on every release.
 2. **Verify checksums and signatures** of installer artifacts.
 3. **Run with the least-privileged OS user** that can spawn Chrome.
-4. **Use `--vault-keychain`** (Phase 6) to bind the vault to the OS keychain.
-5. **Audit cassettes before installing them**, especially from third-party publishers. `genatp inspect <cassette>` shows the recorded actions and assertions.
-6. **Network egress filter** the headless browser if the workload allows.
+4. **Use the OS keychain-backed vault** (default `OsKeyStore`) so the master key is not a plaintext env var.
+5. **Audit cassettes before installing them**, especially from third-party publishers. `genatp cassette inspect <slug>` shows the recorded actions.
+6. **Scope MCP vault access** with `genatp serve --vault-domains github.com,example.com` instead of the default allow-any capability.
+7. **Network egress filter** the headless browser if the workload allows.
 
 ## Cryptography
 

@@ -29,6 +29,7 @@
 )]
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
@@ -36,11 +37,13 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use genatp_browser::launch;
+use genatp_cassette::record::CassetteRecorder;
 use genatp_core::budget::{BudgetLimits, Pricing};
 use genatp_core::event_log::EventLog;
 use genatp_core::orchestrator::{OrchestratorConfig, RunOutcome, run as run_task};
 use genatp_core::page_adapter::PageAdapter;
-use genatp_core::task::Task;
+use genatp_core::task::{DEFAULT_MAX_CONTEXT_TOKENS, Task};
+use genatp_core::user_prompt::{CallbackUserPrompt, StdinUserPrompt, UserPrompt};
 use genatp_llm::{MockProvider, resolve_from_env};
 use genatp_mcp::{McpSession, SessionConfig, tools as mcp_tools};
 
@@ -268,28 +271,14 @@ fn list_mcp_tools() -> PyResult<Vec<NativeToolDescriptor>> {
 }
 
 /// Run a single agent task. This is the heart of the Python SDK.
-///
-/// Parameters:
-///   goal:        plain-English task description.
-///   start_url:   URL the agent navigates to first.
-///   model:       LLM model id (defaults to the resolved provider's default).
-///   max_steps:   step ceiling. Independent of token/wall budgets.
-///   max_tokens:  hard token budget (0 = unlimited).
-///   max_wall_s:  wall-clock budget in seconds (0 = unlimited).
-///   max_usd:     dollar budget (0 = unlimited).
-///   task_id:     event-log key; defaults to a uuid-like timestamp.
-///   headless:    Chrome headless mode.
-///   user_data_dir: persistent profile dir; `None` for ephemeral.
-///   provider:    `"anthropic" | "openai" | "nim" | "ollama" | "mock"`.
-///                `None` auto-detects via env vars (see Phase-3 factory).
 #[pyfunction]
 #[pyo3(signature = (
     goal,
     start_url,
     model = None,
     max_steps = 30,
-    max_tokens = 0,
-    max_wall_s = 0,
+    max_tokens = 100_000,
+    max_wall_s = 600,
     max_usd = 0.0,
     system_prompt = None,
     task_id = None,
@@ -297,6 +286,10 @@ fn list_mcp_tools() -> PyResult<Vec<NativeToolDescriptor>> {
     user_data_dir = None,
     provider = None,
     mock_reply = None,
+    record = false,
+    record_slug = None,
+    ask_user = None,
+    enable_stdin_ask = None,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn run_agent(
@@ -313,10 +306,18 @@ fn run_agent(
     user_data_dir: Option<String>,
     provider: Option<String>,
     mock_reply: Option<String>,
+    record: bool,
+    record_slug: Option<String>,
+    ask_user: Option<Py<PyAny>>,
+    enable_stdin_ask: Option<bool>,
 ) -> PyResult<NativeRunResult> {
+    let ask_user_obj = ask_user;
+    let use_stdin = enable_stdin_ask.unwrap_or(!headless);
+
     let runtime = build_runtime()?;
+    let goal_owned = goal.to_owned();
+    let start_owned = start_url.to_owned();
     let outcome = runtime.block_on(async move {
-        // 1) Provider.
         let (provider_arc, resolved_model): (Arc<dyn genatp_llm::LlmProvider>, String) =
             match provider.as_deref() {
                 Some("mock") => {
@@ -337,7 +338,6 @@ fn run_agent(
                 }
             };
 
-        // 2) Browser.
         let browser = launch(genatp_browser::LaunchOptions {
             headless: if headless {
                 genatp_browser::launch::HeadlessMode::New
@@ -348,15 +348,21 @@ fn run_agent(
             ..genatp_browser::LaunchOptions::default()
         })
         .await
-        .map_err(to_pyerr)?;
+        .map_err(|e| {
+            to_pyerr(format!(
+                "{e}. Hint: Chrome exit 21 often means the user-data-dir is locked by another \
+                 Chrome process, or CHROME_PATH is wrong. Close other Chrome windows using that \
+                 profile, or omit user_data_dir."
+            ))
+        })?;
         let page = browser.new_page().await.map_err(to_pyerr)?;
 
-        // 3) Task.
         let id = task_id.unwrap_or_else(|| format!("py-{}", now_ms()));
+        let slug = record_slug.clone().unwrap_or_else(|| id.clone());
         let task = Task {
-            id,
-            goal: goal.to_owned(),
-            start_url: start_url.to_owned(),
+            id: id.clone(),
+            goal: goal_owned.clone(),
+            start_url: start_owned,
             model: resolved_model.clone(),
             system_prompt,
             max_steps,
@@ -368,24 +374,116 @@ fn run_agent(
             },
             pricing: Pricing::FREE,
             retry: genatp_core::RetryPolicy::default(),
+            record,
+            record_slug: if record { Some(slug.clone()) } else { None },
+            max_context_tokens: DEFAULT_MAX_CONTEXT_TOKENS,
+            skip_cassette: false,
+            cassette_slug: None,
         };
 
-        // 4) Run.
+        let user_prompt: Option<Arc<dyn UserPrompt>> = if let Some(cb) = ask_user_obj {
+            Some(Arc::new(CallbackUserPrompt {
+                callback: move |question, options| {
+                    Python::attach(|py| {
+                        let opts_py = match options {
+                            Some(o) => match PyList::new(py, o) {
+                                Ok(list) => list.into_any().unbind(),
+                                Err(e) => return Err(e.to_string()),
+                            },
+                            None => py.None(),
+                        };
+                        let result = cb
+                            .call1(py, (question, opts_py))
+                            .map_err(|e| e.to_string())?;
+                        result.extract::<String>(py).map_err(|e| e.to_string())
+                    })
+                },
+            }))
+        } else if use_stdin {
+            Some(Arc::new(StdinUserPrompt) as Arc<dyn UserPrompt>)
+        } else {
+            None
+        };
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_flag = cancel.clone();
+        let _ctrlc = tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                cancel_flag.store(true, Ordering::SeqCst);
+                eprintln!("genATP: interrupt received — aborting after current step…");
+            }
+        });
+
+        let page_adapter = PageAdapter::new(page);
+        let heal = if record {
+            None
+        } else {
+            Some(genatp_cassette::HealConfig {
+                provider: provider_arc.clone(),
+                model: task.model.clone(),
+            })
+        };
+        if let Ok(Some(genatp_cassette::RouteHit::Replay {
+            slug: hit_slug,
+            version,
+            outcome: replay,
+            healed_version,
+        })) = genatp_cassette::try_route(
+            &page_adapter,
+            genatp_cassette::RouteOptions {
+                slug: task.cassette_slug.as_deref(),
+                goal: &task.goal,
+                start_url: &task.start_url,
+                skip_cassette: task.skip_cassette || record,
+                vault_capability: None,
+                heal,
+            },
+        )
+        .await
+        {
+            let summary = format!(
+                "cassette replay {hit_slug}@{version}: {} ok / {} failed in {}ms{}",
+                replay.steps_succeeded,
+                replay.steps_failed,
+                replay.duration_ms,
+                healed_version
+                    .map(|v| format!(" (healed → {v})"))
+                    .unwrap_or_default()
+            );
+            let _ = browser.shutdown(Duration::from_secs(5)).await;
+            return Ok(NativeRunResult {
+                outcome: "success".into(),
+                summary,
+                steps: replay.steps_succeeded + replay.steps_failed,
+                tokens: 0,
+                usd: 0.0,
+                event_count: 0,
+            });
+        }
+
         let mut log = EventLog::in_memory();
         let result = run_task(OrchestratorConfig {
             task,
-            browser: PageAdapter::new(page),
+            browser: page_adapter,
             provider: provider_arc,
             event_log: &mut log,
             snapshot_store: None,
             policy_engine: genatp_perception::PolicyEngine::default(),
             vision_provider: None,
+            user_prompt,
+            cancel: Some(cancel),
         })
         .await;
 
-        let event_count = log.entries().len();
+        if record && let Ok(RunOutcome::Success { .. }) = &result {
+            let recorder = CassetteRecorder::new(slug, goal_owned);
+            match recorder.record_and_save(&log) {
+                Ok(path) => eprintln!("genATP: cassette saved to {}", path.display()),
+                Err(e) => eprintln!("genATP: cassette record failed: {e}"),
+            }
+        }
 
-        // 5) Translate into a Python-friendly result.
+        let event_count = log.entries().len();
         let last_spend = log.entries().iter().rev().find_map(|entry| {
             if let genatp_core::event_log::Event::RunFinished { spend, .. } = &entry.event {
                 Some(*spend)

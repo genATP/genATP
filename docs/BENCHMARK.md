@@ -1,27 +1,38 @@
 # genATP v1.0.0 — Benchmark Guide
 
-> **Last updated:** 2026-06-22
-> **Phase:** 17 — v1.0 GA + WebVoyager benchmark
+> **Last updated:** 2026-08-30
+> **Phase:** Product completion — measured column filled only after signed-off runs
 
 This document describes the genATP benchmark methodology, performance
-budgets, and how to reproduce all published numbers.
+budgets, and how to reproduce published numbers. **Do not cite Measured
+cells as marketing facts until they are filled from a real run.**
 
 ---
 
 ## 1. Performance Budgets
 
-| Operation | Budget | Measured (p95) |
-|-----------|--------|----------------|
-| Cold start (CLI → first snapshot) | < 2 s | TBD |
-| Page snapshot (DOM mode) | < 250 ms | TBD |
-| Cassette replay step | < 50 ms (no LLM) | TBD |
-| Vision fallback step | < 1.5 s | TBD |
-| Vault unlock (per session) | < 100 ms | TBD |
-| 20-step WebVoyager task (avg tokens) | ≤ 35,000 | TBD |
-| WebVoyager success rate | ≥ 85% | TBD |
+| Operation | Budget | Measured (p95) | Status |
+|-----------|--------|----------------|--------|
+| Cold start (CLI → first snapshot) | < 2 s | TBD | Run `make bench` / local smoke after sign-off |
+| Page snapshot (DOM mode) | < 250 ms | TBD | Criterion: perception benches |
+| Cassette replay step | < 50 ms (no LLM) | TBD | `cargo bench -p genatp-cassette --bench cassette_replay` |
+| Vision fallback step | < 1.5 s | TBD | Requires vision provider |
+| Vault unlock (per session) | < 100 ms | TBD | `cargo bench -p genatp-vault --bench vault_unlock` |
+| 20-step WebVoyager task (avg tokens) | ≤ 35,000 | TBD | **Only after Phase 4 user sign-off** |
+| WebVoyager success rate | ≥ 85% | TBD | **Only after Phase 4 user sign-off** |
 
-> **TBD** values will be published on the public dashboard at
-> `genatp.dev/bench` after the v1.0.0 release benchmark run.
+Peer comparison targets (not genATP measurements) remain in §2.3.
+
+To fill local microbenchmark cells after you sign off the product:
+
+```bash
+make bench
+# or on Windows:
+cargo bench -p genatp-cassette --bench cassette_replay -- --sample-size 20
+cargo bench -p genatp-vault --bench vault_unlock -- --sample-size 20
+```
+
+Paste Criterion p95 into the Measured column and date the run.
 
 ---
 
@@ -63,14 +74,15 @@ A task is considered **successful** if:
 
 | Tool | WebVoyager Success | Avg Tokens/20-step | Methodology |
 |------|:------------------:|:------------------:|:-----------:|
-| **genATP (v1.0.0)** | **≥ 85%** | **≤ 35,000** | This document |
-| browser-use | ~50–60% | ~1.4M | Published results |
-| Stagehand | ~60% | ~1.8M | Published results |
-| Playwright MCP | ~55% | ~2.28M | Published results |
+| **genATP (target)** | **≥ 85%** | **≤ 35,000** | This document — measured TBD until signed-off run |
+| browser-use | ~50–60% | ~1.4M | Published results (peer) |
+| Stagehand | ~60% | ~1.8M | Published results (peer) |
+| Playwright MCP | ~55% | ~2.28M | Published results (peer) |
 
-> Comparison numbers sourced from each project's published benchmark
-> results and methodology pages. genATP's methodology repo is available
-> at `https://github.com/genATP/benchmark` for third-party reproduction.
+> Comparison numbers for peers are sourced from those projects’ published
+> materials. genATP Measured cells stay TBD until you complete
+> [`FULL_SYSTEM_USER_TEST.md`](./FULL_SYSTEM_USER_TEST.md) sign-off and run
+> the WebVoyager methodology above.
 
 ---
 

@@ -177,7 +177,55 @@ impl Page {
 
         match tokio::time::timeout(self.op_timeout, self.inner.execute(params)).await {
             Ok(Ok(_)) => Ok(()),
-            Ok(Err(err)) => Err(BrowserError::Cdp(err.to_string())),
+            Ok(Err(err)) => {
+                let msg = err.to_string();
+                // DOM nodes without layout (detached / display:none / mid-navigate)
+                // are common on SPAs — retry once after a short settle.
+                if msg.contains("layout object") || msg.contains("-32000") {
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                    let _ = self
+                        .inner
+                        .execute(
+                            ScrollIntoViewIfNeededParams::builder()
+                                .backend_node_id(backend_id)
+                                .build(),
+                        )
+                        .await;
+                    let resolved = self
+                        .inner
+                        .execute(
+                            ResolveNodeParams::builder()
+                                .backend_node_id(backend_id)
+                                .build(),
+                        )
+                        .await?;
+                    let object_id = resolved.result.object.object_id.clone().ok_or_else(|| {
+                        BrowserError::Cdp(
+                            "resolve node returned no object id after layout retry".into(),
+                        )
+                    })?;
+                    let retry_params = CallFunctionOnParams::builder()
+                        .function_declaration("function() { this.click(); }")
+                        .object_id(object_id)
+                        .return_by_value(true)
+                        .await_promise(true)
+                        .build()
+                        .map_err(|e| BrowserError::Cdp(format!("call-fn builder: {e}")))?;
+                    return match tokio::time::timeout(
+                        self.op_timeout,
+                        self.inner.execute(retry_params),
+                    )
+                    .await
+                    {
+                        Ok(Ok(_)) => Ok(()),
+                        Ok(Err(err2)) => Err(BrowserError::Cdp(format!(
+                            "{err2} (retried after layout object error; original: {msg})"
+                        ))),
+                        Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
+                    };
+                }
+                Err(BrowserError::Cdp(msg))
+            }
             Err(_) => Err(BrowserError::Timeout(self.op_timeout)),
         }
     }

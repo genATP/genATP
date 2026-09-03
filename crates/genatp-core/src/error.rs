@@ -44,6 +44,10 @@ pub enum CoreError {
     #[error("config: {0}")]
     Config(String),
 
+    /// Operator interrupted the run (Ctrl+C / cancel flag).
+    #[error("interrupted: {0}")]
+    Interrupted(String),
+
     /// Generic I/O.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),

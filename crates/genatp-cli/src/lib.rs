@@ -56,6 +56,8 @@ pub enum Command {
     },
     /// Record a successful agent run as a signed cassette.
     Record(RecordArgs),
+    /// Run an agent goal (optionally recording a cassette).
+    Run(RunArgs),
     /// Manage cassettes (list, inspect, replay).
     Cassette {
         #[command(subcommand)]
@@ -168,23 +170,70 @@ pub struct RecordArgs {
     pub url: String,
     /// Free-form goal for the agent.
     pub goal: String,
-    /// LLM model to use (e.g. `gpt-4`, `claude-sonnet-4-20250514`).
-    #[arg(long, default_value = "gpt-4")]
-    pub model: String,
+    /// LLM model to use (defaults to provider / GENATP_LLM_MODEL).
+    #[arg(long)]
+    pub model: Option<String>,
     /// Maximum agent steps before giving up.
     #[arg(long, default_value_t = 30)]
     pub max_steps: u32,
+    /// Hard token budget (0 = unlimited).
+    #[arg(long, default_value_t = 100_000)]
+    pub max_tokens: u32,
+    /// Wall-clock seconds (0 = unlimited).
+    #[arg(long, default_value_t = 600)]
+    pub max_wall_s: u64,
     /// Launch Chrome in headed mode (visible window).
     #[arg(long)]
     pub headed: bool,
-    /// Path to the Chrome / Chromium executable. Auto-detected if not
-    /// set (checks `CHROME_PATH` env var, Windows registry, and common
-    /// installation directories).
+    /// Path to the Chrome / Chromium executable.
     #[arg(long, env = "CHROME_PATH")]
     pub chrome_path: Option<PathBuf>,
+    /// Persistent Chrome profile directory.
+    #[arg(long, env = "GENATP_USER_DATA_DIR")]
+    pub user_data_dir: Option<PathBuf>,
     /// Description for the cassette metadata.
     #[arg(long, default_value = "")]
     pub description: String,
+}
+
+/// Arguments for `genatp run`.
+#[derive(Debug, clap::Args)]
+pub struct RunArgs {
+    /// Free-form goal for the agent.
+    #[arg(long)]
+    pub goal: String,
+    /// URL to start on.
+    #[arg(long = "start-url")]
+    pub start_url: String,
+    /// LLM model override.
+    #[arg(long)]
+    pub model: Option<String>,
+    #[arg(long, default_value_t = 30)]
+    pub max_steps: u32,
+    #[arg(long, default_value_t = 100_000)]
+    pub max_tokens: u32,
+    #[arg(long, default_value_t = 600)]
+    pub max_wall_s: u64,
+    #[arg(long)]
+    pub headed: bool,
+    #[arg(long, env = "CHROME_PATH")]
+    pub chrome_path: Option<PathBuf>,
+    /// Persistent Chrome profile directory (avoids clashing with MCP /
+    /// other Chrome instances that lock the default temp profile).
+    #[arg(long, env = "GENATP_USER_DATA_DIR")]
+    pub user_data_dir: Option<PathBuf>,
+    /// Also save a cassette on success.
+    #[arg(long)]
+    pub record: bool,
+    /// Cassette slug when `--record` is set, or for router lookup.
+    #[arg(long)]
+    pub slug: Option<String>,
+    /// Skip cassette router (always plan with LLM).
+    #[arg(long)]
+    pub skip_cassette: bool,
+    /// Disable self-heal on cassette drift.
+    #[arg(long)]
+    pub no_heal: bool,
 }
 
 /// Subcommands under `genatp cassette`.
@@ -218,6 +267,10 @@ pub enum CassetteAction {
         /// and common installation directories).
         #[arg(long, env = "CHROME_PATH")]
         chrome_path: Option<PathBuf>,
+        /// Persistent Chrome profile directory (avoids clashing with MCP /
+        /// other Chrome instances that lock the default temp profile).
+        #[arg(long, env = "GENATP_USER_DATA_DIR")]
+        user_data_dir: Option<PathBuf>,
     },
 }
 
@@ -275,6 +328,11 @@ pub struct ServeArgs {
     /// across runs.
     #[arg(long, env = "GENATP_USER_DATA_DIR")]
     pub user_data_dir: Option<PathBuf>,
+
+    /// Comma-separated domains the MCP vault tools may touch
+    /// (e.g. `github.com,example.com`). Default: allow any domain.
+    #[arg(long, value_delimiter = ',')]
+    pub vault_domains: Vec<String>,
 }
 
 /// Configure tracing once. Logs unconditionally go to stderr — stdout
@@ -335,6 +393,13 @@ pub fn run() -> i32 {
                 1
             }
         },
+        Some(Command::Run(args)) => match run_agent_goal(args) {
+            Ok(()) => 0,
+            Err(e) => {
+                eprintln!("genatp: run failed: {e:#}");
+                1
+            }
+        },
         Some(Command::Cassette { action }) => match run_cassette(action) {
             Ok(()) => 0,
             Err(e) => {
@@ -371,11 +436,17 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
         .enable_all()
         .build()?;
     rt.block_on(async move {
+        let vault_capability = if args.vault_domains.is_empty() {
+            genatp_vault::Capability::any()
+        } else {
+            genatp_vault::Capability::for_domains(args.vault_domains.iter().map(String::as_str))?
+        };
         let session_cfg = genatp_mcp::SessionConfig {
             headless: !args.headed,
             chrome_path: args.chrome_path.clone(),
             user_data_dir: args.user_data_dir.clone(),
             pool_capacity: 1,
+            vault_capability,
             ..genatp_mcp::SessionConfig::default()
         };
         let session = genatp_mcp::McpSession::new(session_cfg).await?;
@@ -393,22 +464,204 @@ fn run_serve(args: ServeArgs) -> anyhow::Result<()> {
     })
 }
 
-fn run_record(_args: RecordArgs) -> anyhow::Result<()> {
-    // Phase 7: recording requires the full orchestrator + browser. For now
-    // wire the skeleton so the CLI compiles; the live implementation plugs
-    // in when the orchestrator exposes a "record mode" flag (Phase 7 E2E
-    // integration, tested via `cargo run -p genatp-cli -- record ...`).
-    //
-    // The actual recording flow is:
-    //   1. Launch browser (headed/headless per --headed flag).
-    //   2. Build a Task from the CLI args.
-    //   3. Run the orchestrator with an EventLog.
-    //   4. On success, feed the EventLog to CassetteRecorder.
-    //   5. Sign and save to ~/.genatp/cassettes/<slug>/versions/1.0.0.cassette.
-    eprintln!("genatp record: this command will be fully wired in Phase 7 E2E integration.");
-    eprintln!("The cassette recording library is ready — see `genatp-cassette` crate.");
-    eprintln!("Use `genatp cassette list` and `genatp cassette inspect` for existing cassettes.");
-    Ok(())
+fn run_record(args: RecordArgs) -> anyhow::Result<()> {
+    let run = RunArgs {
+        goal: args.goal,
+        start_url: args.url,
+        model: args.model,
+        max_steps: args.max_steps,
+        max_tokens: args.max_tokens,
+        max_wall_s: args.max_wall_s,
+        headed: args.headed,
+        chrome_path: args.chrome_path,
+        user_data_dir: args.user_data_dir,
+        record: true,
+        slug: Some(args.slug),
+        skip_cassette: true, // recording always plans
+        no_heal: true,
+    };
+    run_agent_goal(run)
+}
+
+fn run_agent_goal(args: RunArgs) -> anyhow::Result<()> {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    use genatp_browser::LaunchOptions;
+    use genatp_cassette::record::CassetteRecorder;
+    use genatp_core::budget::{BudgetLimits, Pricing};
+    use genatp_core::event_log::EventLog;
+    use genatp_core::orchestrator::{OrchestratorConfig, RunOutcome, run};
+    use genatp_core::page_adapter::PageAdapter;
+    use genatp_core::task::{DEFAULT_MAX_CONTEXT_TOKENS, Task};
+    use genatp_core::user_prompt::{StdinUserPrompt, UserPrompt};
+    use genatp_llm::resolve_from_env;
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    rt.block_on(async move {
+        let resolved = resolve_from_env()?;
+        let model = args.model.unwrap_or(resolved.model);
+        let provider = resolved.provider;
+
+        let mut launch_opts = LaunchOptions {
+            headless: if args.headed {
+                genatp_browser::launch::HeadlessMode::Visible
+            } else {
+                genatp_browser::launch::HeadlessMode::New
+            },
+            ..LaunchOptions::default()
+        };
+        if let Some(path) = args.chrome_path {
+            launch_opts.chrome_executable = Some(path);
+        }
+        if let Some(dir) = args.user_data_dir {
+            launch_opts.user_data_dir = Some(dir);
+        }
+
+        let browser = genatp_browser::launch(launch_opts).await?;
+        let page = browser.new_page().await?;
+
+        let id = format!("cli-{}", chrono::Utc::now().timestamp_millis());
+        let slug = args.slug.clone().unwrap_or_else(|| id.clone());
+        let task = Task {
+            id: id.clone(),
+            goal: args.goal.clone(),
+            start_url: args.start_url.clone(),
+            model,
+            system_prompt: None,
+            max_steps: args.max_steps,
+            budget: BudgetLimits {
+                max_tokens: args.max_tokens,
+                max_wall: Duration::from_secs(args.max_wall_s),
+                ..BudgetLimits::default()
+            },
+            pricing: Pricing::FREE,
+            retry: genatp_core::RetryPolicy::default(),
+            record: args.record,
+            record_slug: if args.record {
+                Some(slug.clone())
+            } else {
+                None
+            },
+            max_context_tokens: DEFAULT_MAX_CONTEXT_TOKENS,
+            skip_cassette: args.skip_cassette,
+            cassette_slug: args.slug.clone(),
+        };
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_flag = cancel.clone();
+        tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                cancel_flag.store(true, Ordering::SeqCst);
+                eprintln!("genATP: interrupt received — aborting after current step…");
+            }
+        });
+
+        let page_adapter = PageAdapter::new(page);
+        let heal = if args.no_heal {
+            None
+        } else {
+            Some(genatp_cassette::HealConfig {
+                provider: provider.clone(),
+                model: task.model.clone(),
+            })
+        };
+        let route = genatp_cassette::try_route(
+            &page_adapter,
+            genatp_cassette::RouteOptions {
+                slug: task.cassette_slug.as_deref(),
+                goal: &task.goal,
+                start_url: &task.start_url,
+                skip_cassette: task.skip_cassette || args.record,
+                vault_capability: None,
+                heal,
+            },
+        )
+        .await?;
+
+        if let Some(genatp_cassette::RouteHit::Replay {
+            slug: hit_slug,
+            version,
+            outcome: replay,
+            healed_version,
+        }) = route
+        {
+            println!("Outcome: success (cassette replay)");
+            println!("Cassette: {hit_slug}@{version}");
+            if let Some(hv) = healed_version {
+                println!("Healed:   {hv}");
+            }
+            println!("Steps:   {}", replay.steps_succeeded + replay.steps_failed);
+            println!("Tokens:  0");
+            println!(
+                "Summary: replayed {} ok / {} failed in {}ms",
+                replay.steps_succeeded, replay.steps_failed, replay.duration_ms
+            );
+            let _ = browser.shutdown(Duration::from_secs(5)).await;
+            return Ok::<(), anyhow::Error>(());
+        }
+
+        let mut log = EventLog::in_memory();
+        let outcome = run(OrchestratorConfig {
+            task,
+            browser: page_adapter,
+            provider,
+            event_log: &mut log,
+            snapshot_store: None,
+            policy_engine: genatp_perception::PolicyEngine::default(),
+            vision_provider: None,
+            user_prompt: Some(Arc::new(StdinUserPrompt) as Arc<dyn UserPrompt>),
+            cancel: Some(cancel),
+        })
+        .await?;
+
+        let spend = log.entries().iter().rev().find_map(|e| {
+            if let genatp_core::event_log::Event::RunFinished { spend, .. } = &e.event {
+                Some(*spend)
+            } else {
+                None
+            }
+        });
+
+        match &outcome {
+            RunOutcome::Success { summary, steps } => {
+                println!("Outcome: success");
+                println!("Steps:   {steps}");
+                if let Some(s) = spend {
+                    println!("Tokens:  {}", s.tokens);
+                    println!("Cost:    ${:.4}", s.usd);
+                }
+                println!("Summary: {summary}");
+                if args.record {
+                    let recorder = CassetteRecorder::new(
+                        slug,
+                        if args.goal.is_empty() {
+                            "cli record"
+                        } else {
+                            &args.goal
+                        },
+                    );
+                    let path = recorder.record_and_save(&log)?;
+                    println!("Cassette: {}", path.display());
+                }
+            }
+            RunOutcome::Aborted { reason, steps } => {
+                println!("Outcome: aborted");
+                println!("Steps:   {steps}");
+                if let Some(s) = spend {
+                    println!("Tokens:  {}", s.tokens);
+                }
+                println!("Summary: {reason}");
+            }
+        }
+
+        let _ = browser.shutdown(Duration::from_secs(5)).await;
+        Ok::<(), anyhow::Error>(())
+    })
 }
 
 fn run_cassette(action: CassetteAction) -> anyhow::Result<()> {
@@ -480,7 +733,8 @@ fn run_cassette(action: CassetteAction) -> anyhow::Result<()> {
             version,
             headed,
             chrome_path,
-        } => run_replay(slug, version, headed, chrome_path),
+            user_data_dir,
+        } => run_replay(slug, version, headed, chrome_path, user_data_dir),
     }
 }
 
@@ -490,6 +744,7 @@ fn run_replay(
     version: Option<String>,
     headed: bool,
     chrome_path: Option<PathBuf>,
+    user_data_dir: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     use std::collections::HashMap;
 
@@ -539,6 +794,9 @@ fn run_replay(
     };
     if let Some(path) = chrome_path {
         launch.chrome_executable = Some(path);
+    }
+    if let Some(dir) = user_data_dir {
+        launch.user_data_dir = Some(dir);
     }
     let pool_cfg = PoolConfig::default()
         .launch(launch)
@@ -1091,8 +1349,10 @@ mod tests {
                 assert_eq!(a.slug, "my-slug");
                 assert_eq!(a.url, "https://example.com");
                 assert_eq!(a.goal, "Click the button");
-                assert_eq!(a.model, "gpt-4"); // default
-                assert_eq!(a.max_steps, 30); // default
+                assert!(a.model.is_none());
+                assert_eq!(a.max_steps, 30);
+                assert_eq!(a.max_tokens, 100_000);
+                assert_eq!(a.max_wall_s, 600);
                 assert!(!a.headed);
             }
             _ => panic!("expected record subcommand"),
@@ -1118,12 +1378,38 @@ mod tests {
         .unwrap();
         match cli.command {
             Some(Command::Record(a)) => {
-                assert_eq!(a.model, "claude-sonnet-4-20250514");
+                assert_eq!(a.model.as_deref(), Some("claude-sonnet-4-20250514"));
                 assert_eq!(a.max_steps, 10);
                 assert!(a.headed);
                 assert_eq!(a.description, "Login flow");
             }
             _ => panic!("expected record subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_run_subcommand() {
+        let cli = Cli::try_parse_from([
+            "genatp",
+            "run",
+            "--goal",
+            "Fill the form",
+            "--start-url",
+            "https://example.com",
+            "--record",
+            "--slug",
+            "form-fill",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Run(a)) => {
+                assert_eq!(a.goal, "Fill the form");
+                assert_eq!(a.start_url, "https://example.com");
+                assert!(a.record);
+                assert_eq!(a.slug.as_deref(), Some("form-fill"));
+                assert_eq!(a.max_tokens, 100_000);
+            }
+            _ => panic!("expected run subcommand"),
         }
     }
 
@@ -1185,10 +1471,38 @@ mod tests {
                         version,
                         headed: _,
                         chrome_path: _,
+                        user_data_dir: _,
                     },
             }) => {
                 assert_eq!(slug, "my-slug");
                 assert!(version.is_none());
+            }
+            _ => panic!("expected cassette replay subcommand"),
+        }
+    }
+
+    #[test]
+    fn parse_cassette_replay_user_data_dir() {
+        let cli = Cli::try_parse_from([
+            "genatp",
+            "cassette",
+            "replay",
+            "my-slug",
+            "--user-data-dir",
+            "/tmp/x",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Cassette {
+                action:
+                    CassetteAction::Replay {
+                        slug,
+                        user_data_dir,
+                        ..
+                    },
+            }) => {
+                assert_eq!(slug, "my-slug");
+                assert_eq!(user_data_dir, Some(PathBuf::from("/tmp/x")));
             }
             _ => panic!("expected cassette replay subcommand"),
         }
@@ -1270,6 +1584,7 @@ mod tests {
                         version,
                         headed: _,
                         chrome_path: _,
+                        user_data_dir: _,
                     },
             }) => {
                 assert_eq!(slug, "my-slug");

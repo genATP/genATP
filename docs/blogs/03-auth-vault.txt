@@ -1,0 +1,188 @@
+Auth Vault: Log In Once — AES-256-GCM, OS Keychain, and Secure Agent Sessions
+
+Agents that forget passwords are cute. Agents that leak them are not.
+
+Suggested Medium tags: Security, AI Agents, Cryptography, Browser Automation, MCP
+
+
+The most boring failure mode in browser agents is also the most expensive: login.
+
+Every demo looks great until the site asks for a password, MFA, or a "verify it's you" challenge. Then the loop becomes:
+
+1. Agent hits a login wall.
+2. Human intervenes.
+3. Session dies when the process restarts.
+4. Tomorrow, repeat.
+
+Most open-source agent browsers treat auth as an afterthought — plaintext cookie dumps, "just use a persistent Chrome profile," or paste secrets into prompts. That is fine for a weekend hack. It is unacceptable for a startup CRM agent, an internal ops bot, or anything near customer data.
+
+genATP ships an Auth Vault: an encrypted, per-domain session store designed so an agent can log in once and stay logged in across restarts, without putting cookies in chat logs.
+
+
+WHAT THE VAULT STORES (AND WHAT IT DOES NOT)
+
+The vault persists browser session material for domains the agent has been granted:
+
+- cookies
+- localStorage entries
+
+It is not a password manager for your Netflix account in the consumer sense — though it can hold secrets referenced by ATP Spec (secret://…) as part of the wider state story. The headline UX is:
+
+    Complete an interactive login (and MFA) once → save_auth → every later run load_auth → zero prompts.
+
+Typical MCP / agent flow
+
+    1. navigate https://github.com/login
+    2. load_auth github.com        # empty the first time
+    3. interactive login + MFA
+    4. save_auth github.com        # seals cookies + localStorage
+    5. later process:
+       load_auth github.com        # hydrate into a fresh browser
+
+CLI inspection:
+
+    genatp vault list
+    # domain                                   count  updated
+    # github.com                                  4   ...
+    # stripe.com                                  3   ...
+
+    genatp vault revoke github.com
+    genatp vault path
+
+
+CRYPTOGRAPHY CHOICES (WHY THESE, NOT "ENCRYPT SOMEHOW")
+
+genATP's vault design is intentionally boring in the best way — audited primitives, clear key hierarchy, explicit threat model.
+
+    Concern            Choice
+    Cipher             AES-256-GCM (96-bit random nonces, 16-byte tag)
+    KDF                HKDF-SHA256
+    Master KEK         32 random bytes from OsRng, sealed by the OS keychain
+    Per-domain DEK     HKDF(KEK, salt=genatp-vault-kdf-v1, info=genatp-vault/dek/<domain>)
+    AAD                <kind>:<domain>:<sub_key> — binds ciphertext to its row
+    Storage            SQLite (WAL mode, foreign keys)
+    Crate              genatp-vault
+
+AES-GCM is the NIST-standardized authenticated encryption mode widely recommended for this class of storage (https://csrc.nist.gov/pubs/sp/800/38/d/final). Authenticated encryption matters: you want integrity, not just confidentiality. A flipped bit in a cookie jar should fail closed, not "mostly work."
+
+Key hierarchy in one diagram
+
+    OS keychain (Keychain / DPAPI / DBus)
+            |  loads master KEK
+            v
+       HKDF-SHA256  →  per-domain DEK
+            |
+            v
+       AES-256-GCM seal/open  (AAD-bound)
+            |
+            v
+       vault.sqlite
+
+Per-domain DEKs mean material for github.com is not naively reusable as a blob for evil.com. AAD binding ties ciphertext to the logical row so records cannot be silently swapped.
+
+Sensitive buffers are zeroized when dropped. Logs are redacted. These are small details that separate a demo vault from something you can defend in a security review.
+
+
+THREAT MODEL (BE HONEST WITH YOUR READERS — AND YOUR CISO)
+
+In scope
+
+- Stolen / cloned vault.sqlite without keychain access → ciphertext useless.
+- Process memory inspection after the vault handle is dropped → zeroization reduces residue.
+- Accidental log leakage → redaction.
+
+Out of scope
+
+- Attacker with an interactive shell as your user (they can often unlock the keychain themselves).
+- Live debugger / ROP against the running process.
+- Subdomain tricks that fool the browser's own cookie policy.
+
+This honesty is deliberate. "Military-grade encryption" slides that ignore OS endpoint compromise are marketing. genATP's docs state the boundary so teams can place compensating controls (disk encryption, MDM, short-lived grants) where they belong.
+
+
+AUTHORIZATION ABOVE CRYPTOGRAPHY
+
+Encryption protects data at rest. It does not stop a confused agent from asking for the wrong domain.
+
+genATP layers a capability grant on top of the vault:
+
+- CLI human use: broad capability (you asked).
+- Orchestrator / cassettes: tight domain grants so a misbehaving LLM cannot read auth for domains it never declared.
+
+That is the difference between "we encrypted cookies" and "we designed least privilege for tool-using models."
+
+MCP tools exposed:
+
+    Tool                        When                        Result
+    save_auth { domain }        After successful login      Persist sealed session rows
+    load_auth { domain }        Before same-origin work     Hydrate into the browser
+    list_auth {}                Anytime                     List domains / entry counts
+
+
+WHERE THE FILE LIVES
+
+Resolution order:
+
+1. $GENATP_VAULT_PATH
+2. $GENATP_HOME/vault.sqlite
+3. Platform project dirs:
+   - macOS: ~/Library/Application Support/genatp/vault.sqlite
+   - Windows: %APPDATA%\genatp\genatp\data\vault.sqlite
+   - Linux: ~/.local/share/genatp/vault.sqlite
+
+WAL mode means you may also see -wal / -shm siblings while a process is open — normal SQLite behavior.
+
+
+WHY AGENTS NEED THIS MORE THAN HUMANS DO
+
+Humans tolerate password managers and browser profiles because we are the runtime.
+
+Agents are unattended. They restart. They scale to many contexts. They leave transcripts. If your "auth strategy" is "paste the session cookie into the system prompt," you have created a forever-secret in every log drain, eval store, and support ticket.
+
+A vault flips the default:
+
+- secrets stay in OS-backed sealed storage
+- agents receive hydration, not raw key material in chat
+- revocation is one command: genatp vault revoke example.com
+
+Combine that with Action Cassettes (replay without LLM calls) and you get the production pattern: login once → save auth → record cassette → replay forever under budget.
+
+
+TRY IT
+
+    cargo install --path crates/genatp-cli
+    # or pip install genatp
+
+    genatp serve --stdio   # MCP
+
+Claude Desktop / Cursor snippet:
+
+    {
+      "mcpServers": {
+        "genatp": {
+          "command": "genatp",
+          "args": ["serve", "--stdio"]
+        }
+      }
+    }
+
+After an interactive login in the agent session, call save_auth. On the next cold start, load_auth before you touch the authenticated app.
+
+
+CLOSING
+
+The agent economy will not be built on prompts that contain passwords.
+
+It will be built on narrow tools, sealed state, and honest threat models.
+
+genATP's Auth Vault is a deliberately unglamorous piece of that stack: AES-256-GCM, HKDF, OS keychain, SQLite, domain capabilities — the boring machinery that lets an agent remember a session without teaching your logs to remember a secret.
+
+
+Project: https://github.com/genatp/genatp
+
+Deep dive:
+- https://github.com/genatp/genatp/blob/main/docs/VAULT.md
+- https://github.com/genatp/genatp/blob/main/docs/MCP.md
+
+Standard:
+- NIST SP 800-38D (GCM): https://csrc.nist.gov/pubs/sp/800/38/d/final

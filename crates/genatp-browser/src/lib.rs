@@ -53,6 +53,8 @@ pub fn version() -> &'static str {
 pub struct BrowserHandle {
     browser: Browser,
     handler_task: JoinHandle<()>,
+    /// Keeps an auto-created ephemeral profile alive for the browser lifetime.
+    _ephemeral_profile: Option<tempfile::TempDir>,
 }
 
 impl BrowserHandle {
@@ -104,11 +106,29 @@ impl BrowserHandle {
 /// # Errors
 /// - [`BrowserError::Launch`] if `chromiumoxide` cannot start Chrome (binary
 ///   missing, port collision, sandbox denied).
-pub async fn launch(opts: LaunchOptions) -> Result<BrowserHandle> {
+pub async fn launch(mut opts: LaunchOptions) -> Result<BrowserHandle> {
+    // When no profile is specified, use a unique temp dir per launch so concurrent
+    // CLI / MCP / cassette replay runs do not fight over chromiumoxide's default.
+    let ephemeral_profile = if opts.user_data_dir.is_none() {
+        let dir = tempfile::Builder::new()
+            .prefix("genatp-profile-")
+            .tempdir()
+            .map_err(|err| BrowserError::Launch(format!("ephemeral profile dir: {err}")))?;
+        opts.user_data_dir = Some(dir.path().to_path_buf());
+        Some(dir)
+    } else {
+        None
+    };
+
     let config = opts.into_config()?;
-    let (browser, mut handler) = Browser::launch(config)
-        .await
-        .map_err(|err| BrowserError::Launch(err.to_string()))?;
+    let (browser, mut handler) = Browser::launch(config).await.map_err(|err| {
+        BrowserError::Launch(format!(
+            "{err}. Hint: if the browser exited with status 21 before the CDP websocket \
+                 was ready, Chrome may already be using the same user-data-dir, CHROME_PATH \
+                 may be wrong, or antivirus blocked the spawn. Close other Chrome instances \
+                 that lock that profile, or omit user_data_dir for an ephemeral profile."
+        ))
+    })?;
 
     let handler_task = tokio::task::spawn(async move {
         // Drain events; chromiumoxide requires this to keep the connection alive.
@@ -119,6 +139,7 @@ pub async fn launch(opts: LaunchOptions) -> Result<BrowserHandle> {
     Ok(BrowserHandle {
         browser,
         handler_task,
+        _ephemeral_profile: ephemeral_profile,
     })
 }
 

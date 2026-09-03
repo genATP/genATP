@@ -31,6 +31,13 @@ pub enum Action {
     Scroll { dx: i32, dy: i32 },
     /// Wait for `ms` milliseconds (rare; usually a smell).
     Wait { ms: u32 },
+    /// Pause the run and ask the human operator a question. The orchestrator
+    /// blocks until the host returns an answer (CLI stdin, SDK callback, …).
+    AskUser {
+        question: String,
+        #[serde(default)]
+        options: Option<Vec<String>>,
+    },
     /// Signal that the task is complete with a final answer / summary.
     Finish { summary: String },
 }
@@ -47,6 +54,7 @@ impl Action {
             Self::Press { .. } => "press",
             Self::Scroll { .. } => "scroll",
             Self::Wait { .. } => "wait",
+            Self::AskUser { .. } => "ask_user",
             Self::Finish { .. } => "finish",
         }
     }
@@ -154,8 +162,29 @@ impl Action {
                 }),
             ),
             ToolDefinition::new(
+                "ask_user",
+                "Ask the human operator a question and WAIT for their reply before continuing. \
+                 Use this for approvals (send email, purchase, delete, submit a form) or missing \
+                 information. Do NOT call finish while waiting for approval — call ask_user instead.",
+                serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "question": { "type": "string" },
+                        "options": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Optional multiple-choice answers"
+                        }
+                    },
+                    "required": ["question"],
+                    "additionalProperties": false
+                }),
+            ),
+            ToolDefinition::new(
                 "finish",
-                "Signal that the task is complete. Provide a final summary string.",
+                "Signal that the task is complete OR blocked by a hard constraint. \
+                 Provide a final summary. Honor negative constraints in the goal \
+                 (do not submit / do not buy / stop if …) by finishing without doing them.",
                 serde_json::json!({
                     "type": "object",
                     "properties": { "summary": { "type": "string" } },
@@ -224,6 +253,26 @@ mod tests {
     }
 
     #[test]
+    fn ask_user_round_trips_via_tool_call() {
+        let call = ToolCall {
+            id: "4".into(),
+            name: "ask_user".into(),
+            arguments: serde_json::json!({
+                "question": "Send the email?",
+                "options": ["yes", "no"]
+            }),
+        };
+        let action = Action::from_tool_call(&call).unwrap();
+        assert_eq!(
+            action,
+            Action::AskUser {
+                question: "Send the email?".into(),
+                options: Some(vec!["yes".into(), "no".into()]),
+            }
+        );
+    }
+
+    #[test]
     fn default_tool_definitions_cover_every_variant() {
         let defs = Action::default_tool_definitions();
         let names: std::collections::HashSet<_> = defs.iter().map(|d| d.name.as_str()).collect();
@@ -235,6 +284,7 @@ mod tests {
             "press",
             "scroll",
             "wait",
+            "ask_user",
             "finish",
         ] {
             assert!(

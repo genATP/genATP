@@ -65,6 +65,14 @@ pub enum CassetteError {
         action: Action,
         reason: String,
     },
+
+    /// Vault capability denied for a cassette domain.
+    #[error("cassette vault capability denied for domain `{0}`")]
+    CapabilityDenied(String),
+
+    /// Self-heal could not patch a drifted step.
+    #[error("cassette self-heal: {0}")]
+    Heal(String),
 }
 
 pub type Result<T> = std::result::Result<T, CassetteError>;

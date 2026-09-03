@@ -79,6 +79,19 @@ impl Default for BudgetLimits {
 }
 
 impl BudgetLimits {
+    /// Sensible ceilings for SDK / CLI agent launches (still overridable).
+    ///
+    /// `0` remains the explicit "unlimited" sentinel when callers opt in.
+    #[must_use]
+    pub fn sdk_defaults() -> Self {
+        Self {
+            max_tokens: 100_000,
+            max_wall: Duration::from_secs(600),
+            max_usd: 0.0,
+            soft_fraction: 0.80,
+        }
+    }
+
     /// Validate the configuration.
     ///
     /// # Errors

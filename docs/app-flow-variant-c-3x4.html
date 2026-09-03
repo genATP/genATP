@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>genATP App Flow — 3:4</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    }
+    /* Exact PPT panel ratio: breadth 3 : length 4 */
+    .stage {
+      width: 750px;
+      height: 1000px;
+      margin: 0 auto;
+      background: #ffffff;
+      position: relative;
+    }
+    svg { display: block; width: 750px; height: 1000px; }
+  </style>
+</head>
+<body>
+  <!--
+    Aspect ratio 3:4 (750 × 1000).
+    Open this file in a browser → screenshot / export for the PPT App Flow panel.
+    Same information as Variant C.
+  -->
+  <div class="stage">
+    <svg viewBox="0 0 750 1000" width="750" height="1000" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#333" />
+        </marker>
+      </defs>
+
+      <!-- Title watermark like template -->
+      <!-- <text x="620" y="970" text-anchor="middle" font-size="28" font-weight="700" fill="#1a1a1a">App Flow</text> -->
+
+      <!-- ===== ROOT ===== -->
+      <ellipse cx="375" cy="48" rx="78" ry="28" fill="#B8D4E8" stroke="#6A9BC2" stroke-width="1.5"/>
+      <text x="375" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="#1a1a1a">genATP</text>
+
+      <!-- Branch labels -->
+      <text x="195" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="#444">Chat Flow</text>
+      <text x="555" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="#444">Code Flow</text>
+
+      <!-- Root → columns -->
+      <line x1="340" y1="76" x2="195" y2="98" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <line x1="410" y1="76" x2="555" y2="98" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- ===== LEFT COLUMN (Chat) ===== -->
+      <!-- Open in Cursor/Claude -->
+      <ellipse cx="195" cy="145" rx="105" ry="26" fill="#B8D4E8" stroke="#6A9BC2" stroke-width="1.5"/>
+      <text x="195" y="150" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Open in Cursor / Claude</text>
+      <line x1="195" y1="171" x2="195" y2="198" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Talk to AI -->
+      <rect x="95" y="200" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="227" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Talk to AI in chat</text>
+      <line x1="195" y1="244" x2="195" y2="272" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- AI calls tools -->
+      <rect x="95" y="274" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">AI calls genATP tools</text>
+      <line x1="195" y1="318" x2="195" y2="346" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Browse left -->
+      <rect x="95" y="348" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="375" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Browse the web</text>
+
+      <!-- ===== RIGHT COLUMN (Code) ===== -->
+      <ellipse cx="555" cy="145" rx="105" ry="26" fill="#B8D4E8" stroke="#6A9BC2" stroke-width="1.5"/>
+      <text x="555" y="150" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Write a short script</text>
+      <line x1="555" y1="171" x2="555" y2="198" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <rect x="455" y="200" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="555" y="227" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Use Python / JS SDK</text>
+      <line x1="555" y1="244" x2="555" y2="272" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <rect x="455" y="274" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="555" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">agent.run(task)</text>
+      <line x1="555" y1="318" x2="555" y2="346" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <rect x="455" y="348" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="555" y="375" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Browse the web</text>
+
+      <!-- Merge to Need login? -->
+      <line x1="195" y1="392" x2="195" y2="430" stroke="#333" stroke-width="1.2"/>
+      <line x1="555" y1="392" x2="555" y2="430" stroke="#333" stroke-width="1.2"/>
+      <line x1="195" y1="430" x2="555" y2="430" stroke="#333" stroke-width="1.2"/>
+      <line x1="375" y1="430" x2="375" y2="458" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Need login? diamond -->
+      <polygon points="375,465 445,515 375,565 305,515" fill="#D4C4E8" stroke="#8B7AA8" stroke-width="1.5"/>
+      <text x="375" y="512" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a1a">Need login?</text>
+      <text x="375" y="528" text-anchor="middle" font-size="11" fill="#333">Yes / No</text>
+
+      <!-- Yes branch left -->
+      <line x1="305" y1="515" x2="195" y2="515" stroke="#333" stroke-width="1.2"/>
+      <line x1="195" y1="515" x2="195" y2="548" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="250" y="508" font-size="11" fill="#333">Yes</text>
+
+      <rect x="95" y="550" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="570" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Save login once</text>
+      <text x="195" y="586" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">in Auth Vault</text>
+      <line x1="195" y1="594" x2="195" y2="622" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <rect x="95" y="624" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="651" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Next runs stay logged in</text>
+
+      <!-- No branch right -->
+      <line x1="445" y1="515" x2="555" y2="515" stroke="#333" stroke-width="1.2"/>
+      <line x1="555" y1="515" x2="555" y2="622" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="490" y="508" font-size="11" fill="#333">No</text>
+
+      <rect x="455" y="624" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="555" y="651" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Continue task</text>
+
+      <!-- Merge to Want to reuse? -->
+      <line x1="195" y1="668" x2="195" y2="700" stroke="#333" stroke-width="1.2"/>
+      <line x1="555" y1="668" x2="555" y2="700" stroke="#333" stroke-width="1.2"/>
+      <line x1="195" y1="700" x2="555" y2="700" stroke="#333" stroke-width="1.2"/>
+      <line x1="375" y1="700" x2="375" y2="728" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <!-- Want to reuse? diamond -->
+      <polygon points="375,735 455,790 375,845 295,790" fill="#D4C4E8" stroke="#8B7AA8" stroke-width="1.5"/>
+      <text x="375" y="787" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a1a">Want to reuse?</text>
+      <text x="375" y="803" text-anchor="middle" font-size="11" fill="#333">Yes / No</text>
+
+      <!-- Yes → Cassette -->
+      <line x1="295" y1="790" x2="195" y2="790" stroke="#333" stroke-width="1.2"/>
+      <line x1="195" y1="790" x2="195" y2="868" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="240" y="783" font-size="11" fill="#333">Yes</text>
+
+      <rect x="95" y="870" width="200" height="44" rx="10" fill="#B5D9B5" stroke="#6A9A6A" stroke-width="1.5"/>
+      <text x="195" y="890" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">Save Cassette /</text>
+      <text x="195" y="906" text-anchor="middle" font-size="12" font-weight="600" fill="#1a1a1a">ATP Spec</text>
+
+      <!-- No → Get result -->
+      <line x1="455" y1="790" x2="555" y2="790" stroke="#333" stroke-width="1.2"/>
+      <line x1="555" y1="790" x2="555" y2="888" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="490" y="783" font-size="11" fill="#333">No</text>
+
+      <ellipse cx="555" cy="910" rx="78" ry="26" fill="#B8D4E8" stroke="#6A9BC2" stroke-width="1.5"/>
+      <text x="555" y="916" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">Get result</text>
+
+      <!-- Cassette also leads to Get result -->
+      <line x1="195" y1="914" x2="195" y2="940" stroke="#333" stroke-width="1.2"/>
+      <line x1="195" y1="940" x2="477" y2="940" stroke="#333" stroke-width="1.2"/>
+      <line x1="477" y1="940" x2="477" y2="926" stroke="#333" stroke-width="1.2" marker-end="url(#arrow)"/>
+    </svg>
+  </div>
+</body>
+</html>

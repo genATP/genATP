@@ -19,10 +19,10 @@
 
 Every AI agent that touches the web today is duct-taped together from six vendors and burns ~2 million tokens to do what a human does in 30 seconds. genATP replaces that whole stack with **one install** and adds two things nothing else has:
 
-- 🎞️ **Action Cassettes** — record-once, replay-forever web workflows. Replays use **zero LLM calls** and self-heal when sites change.
+- 🎞️ **Action Cassettes** — record-once, replay-forever web workflows. Replays use **zero LLM calls**; when a step drifts, scoped **self-heal** can patch the cassette (minor version bump).
 - 📜 **ATP Spec** — a declarative YAML/JSON format that doubles as test, automation, and production agent tool.
 
-Plus the modern essentials: token-optimized snapshots, encrypted auth vault, automatic DOM ↔ vision switching, stealth defaults, MCP server, Python and TypeScript SDKs — all in one binary.
+Plus the modern essentials: token-optimized snapshots, encrypted auth vault, automatic DOM ↔ vision switching, stealth defaults (best-effort), MCP server, Python and TypeScript SDKs — all in one binary.
 
 ---
 
@@ -42,16 +42,16 @@ Plus the modern essentials: token-optimized snapshots, encrypted auth vault, aut
 | **Declarative spec format** | ❌ | ❌ | ❌ | ❌ | **✅** |
 | **Community registry** | ❌ | ❌ | ❌ | ❌ | **✅** |
 
-### Real numbers, not slogans
+### Token targets (methodology — not a substitute for your bench run)
 
-| Task | Playwright MCP | browser-use | **genATP** |
+| Task | Playwright MCP (pub.) | browser-use (pub.) | **genATP target** |
 |---|---:|---:|---:|
-| 20-step WebVoyager task — first run | 2,280,000 tok | 1,400,000 tok | **34,000 tok** |
-| 20-step task — cassette replay | n/a | n/a | **0 tok** ✨ |
+| 20-step WebVoyager task — first run | ~2.28M tok | ~1.4M tok | ≤ 35,000 tok |
+| 20-step task — cassette replay | n/a | n/a | **0 tok** (deterministic replay) |
 | Login persistence across runs | ❌ | ❌ | ✅ encrypted vault |
-| Self-heal on site change | ❌ | ❌ | ✅ automatic |
+| Self-heal on site change | ❌ | ❌ | ✅ scoped LLM patch + cassette bump |
 
-(Detailed methodology in [`docs/BENCHMARK.md`](./docs/BENCHMARK.md).)
+Peer token figures are from those projects’ published materials. genATP **measured** numbers live in [`docs/BENCHMARK.md`](./docs/BENCHMARK.md) (filled after a signed-off bench run — until then the Measured column is TBD).
 
 ---
 
@@ -207,9 +207,9 @@ On a 20-step task, that compounds to **a 60–120× reduction vs raw HTML** and 
 
 The engine tries DOM mode first (~600 tokens). If the page is a canvas, a shadow-DOM jungle, or the tree is sparse, it falls back to screenshot + vision (~12,000 tokens) **automatically**. Your agent never knows the difference.
 
-### 🥷 Stealth defaults
+### 🥷 Stealth defaults (best-effort)
 
-Modern bot-detection looks at hundreds of signals (mouse cadence, GPU fingerprint, TLS stack, typing entropy). genATP ships with a baseline stealth profile good enough for ~80% of common defenses. Pluggable for the rest.
+Modern bot-detection looks at hundreds of signals (mouse cadence, GPU fingerprint, TLS stack, typing entropy). genATP ships a **baseline stealth profile** that helps against common defenses. Cloudflare / advanced bot walls are **not guaranteed** — treat stealth as best-effort and pluggable, not a bypass claim.
 
 ---
 
@@ -337,10 +337,8 @@ Full phase plan with testing gates: [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPM
 |---|---|---|
 | **Personal** | Individuals, non-commercial use | Free, source-available, fully self-hosted — see [LICENSE](./LICENSE) |
 | **Commercial** | Companies, paid products, any revenue-generating use | Paid license — `licensing@genatp.dev` |
-| **Cloud Pro** | Indie devs, startups | $49/mo flat or $0.005/session (includes commercial use) |
-| **Enterprise** | F500, regulated industries | On-prem, audit logs, SOC 2, SSO, SLA — talk to us |
 
-The Personal tier is the full product, not crippled. Any commercial use — including using genATP inside a for-profit company, in a paid service, or as part of a revenue-generating product — requires a Commercial, Cloud, or Enterprise license.
+Self-hosted genATP is the product this repo ships. Hosted “Cloud Pro” / Enterprise SSO offerings are **not** part of the open self-hosted codebase; contact sales if you need a commercial agreement.
 
 ---
 

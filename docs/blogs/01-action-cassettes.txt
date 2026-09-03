@@ -1,0 +1,186 @@
+Action Cassettes: Why Deterministic Replay Is the Missing Layer in AI Browser Agents
+
+Record once. Replay forever. Heal when the site changes.
+
+Suggested Medium tags: AI Agents, Browser Automation, MCP, Rust, DevTools
+
+
+Every AI agent that touches the web today has the same expensive habit: it rethinks the page on every run.
+
+You ask it to scrape a competitor's pricing page. It navigates, snapshots the DOM, burns tens of thousands of tokens planning the next click, fills a form, extracts a table — and tomorrow you ask the same thing again. It starts from zero. Same sites. Same buttons. Same login wall. Same bill.
+
+That is not intelligence. That is amnesia with a credit card.
+
+genATP — the Generative Agent Test Protocol — treats a successful web workflow as something you should be able to save, version, share, and replay without calling an LLM again. We call those artifacts Action Cassettes.
+
+
+THE PROBLEM: AGENTS PAY RENT ON EVERY VISIT
+
+Modern browser agents (Playwright MCP, browser-use, Stagehand, and friends) are impressive at exploration. They are terrible at repetition.
+
+A 20-step WebVoyager-style task can burn on the order of 1.4M–2.28M tokens depending on the stack — for work a human finishes in half a minute. Multiplied by cron jobs, CI runs, and sales-research loops, that cost becomes the product's largest line item.
+
+Worse: when the site redesigns a class name or reshuffles a layout, brittle scripts break. Pure LLM agents often "recover" by spending more tokens wandering. Neither model is acceptable in production.
+
+What we actually need is a third mode:
+
+1. Explore with an LLM (expensive, flexible).
+2. Replay without an LLM (cheap, deterministic).
+3. Heal with an LLM only when replay drifts (rare, targeted).
+
+Cassettes are that third mode — plus the second — packaged as a first-class object.
+
+
+WHAT AN ACTION CASSETTE IS
+
+A cassette is a signed, versioned recording of a successful agent run:
+
+- ordered steps (navigate, click, fill, extract, assert, …)
+- stable element refs derived from the accessibility tree (@eN style targeting)
+- auth bindings (which vault domain to hydrate)
+- budget metadata and event log hooks
+- a content-addressed trail of snapshots so you can time-travel debug any step
+
+Mentally: VCR for web agents. Operationally: closer to a runbook that can execute itself.
+
+Record once
+
+    atp record "scrape competitor pricing from acme.com"
+    # → agent completes the task once
+    # → cassette saved (e.g. competitor-pricing@1.0)
+
+The first run still uses an LLM. That is fine — you pay for discovery once.
+
+Replay forever
+
+    atp run competitor-pricing
+    # → deterministic replay
+    # → 0 LLM tokens
+    # → on the order of ~80 ms per step (no model round-trip)
+
+After the cassette exists, production does not need a planner. The orchestrator becomes a cassette router: hit → replay; miss → plan.
+
+Heal when the world moves
+
+Sites change. Cassettes expect that.
+
+    atp run competitor-pricing
+    # drift detected on step 4
+    # → LLM patches only the broken step
+    # → cassette bumped to v1.1
+
+Healing is scoped. You do not re-plan the entire 20-step workflow because one button moved. That is the economic difference between "self-healing" as a slogan and self-healing as a budget.
+
+
+WHY THIS IS A MOAT, NOT A FEATURE CHECKBOX
+
+Once a team accumulates cassettes for internal tools, vendor portals, and customer workflows, those files encode institutional knowledge: how this org logs into that system on Tuesday after MFA.
+
+That creates:
+
+- switching costs (your library of workflows lives in cassette format)
+- network effects via a registry (atp install github/login style distribution)
+- compliance-friendly artifacts (signed, versioned, auditable runs)
+
+Competitors can copy a browser CDP driver. Copying a company's cassette library is much harder.
+
+
+HOW GENATP ROUTES WORK UNDER THE HOOD
+
+At a high level, the engine is five layers in one binary:
+
+1. Interface — MCP server, Python SDK, TypeScript SDK, CLI
+2. Orchestrator — plan, budgets, retries, cassette router, heal policy
+3. Perception — accessibility snapshots, ref compression, diffs, vision fallback
+4. Browser substrate — CDP via chromiumoxide (not Playwright)
+5. State — Auth Vault, cassette store, content-addressed snapshot history
+
+On each task the router asks: Do we already know how to do this?
+If yes, skip the LLM. If no, plan, then optionally persist a new cassette.
+
+This is why genATP can claim a different cost curve than "always-on agent" tools: tokens are the exception path, not the default path.
+
+
+CASSETTES VS ATP SPEC
+
+People often confuse the two. They are complementary:
+
+Action Cassette
+- Origin: Recorded from a live successful run
+- Best for: "We already did this once — do it again"
+- Replay: Deterministic step tape
+- Mental model: Flight recorder
+
+ATP Spec (.atp.yml)
+- Origin: Authored (or generated) as declarative YAML/JSON
+- Best for: CI tests, reviewed automation, production runbooks
+- Replay: Declarative steps with heal-on-change policy
+- Mental model: Contract
+
+Same engine. Two authoring surfaces. One replay/heal runtime.
+
+A minimal ATP Spec looks like:
+
+    version: 1
+    name: "Login Flow"
+    base_url: "https://the-internet.herokuapp.com"
+    budget:
+      tokens: 5000
+      seconds: 60
+    steps:
+      - navigate: "/login"
+      - fill: { label: "Username", value: "tomsmith" }
+      - fill: { label: "Password", value: "SuperSecretPassword!" }
+      - click: "Login"
+      - assert: "You logged into a secure area!"
+
+That file can be a test, a scheduled automation, or a tool another agent calls. Cassettes are what you get when the agent discovers a path you later want to freeze.
+
+
+WHAT "0 TOKENS" ACTUALLY MEANS
+
+Zero LLM tokens does not mean zero compute. The browser still runs. Snapshots may still be taken for drift detection. Network still happens.
+
+It means you are no longer paying frontier-model prices to rediscover a button you clicked yesterday.
+
+For cron-heavy workloads (price monitoring, portal scraping, regression packs), that is the difference between a demo and a business.
+
+
+GETTING STARTED
+
+    pip install genatp
+    # or: cargo install --path crates/genatp-cli
+
+    from genatp import Agent
+
+    agent = Agent(model="claude-3-5-sonnet-latest")
+    result = agent.run("Find the cheapest direct flight from SFO to JFK next Friday.")
+    print(result.summary)
+
+Wire the MCP server into Cursor / Claude Desktop:
+
+    {
+      "mcpServers": {
+        "genatp": {
+          "command": "genatp",
+          "args": ["serve", "--stdio"]
+        }
+      }
+    }
+
+Then record a workflow you care about — and stop paying to rediscover it.
+
+
+CLOSING
+
+The next decade of software will be full of agents that browse. The winners will not be the agents that think the hardest on every click. They will be the systems that learn a path once, replay it cheaply, and heal narrowly when reality drifts.
+
+Action Cassettes are genATP's bet that web agency needs a memory format — not just another prompt loop.
+
+
+Project: https://github.com/genatp/genatp
+
+Further reading:
+- WebVoyager (ACL 2024): https://aclanthology.org/2024.acl-long.371/
+- Mind2Web: https://arxiv.org/abs/2306.06070
+- Model Context Protocol: https://modelcontextprotocol.io/

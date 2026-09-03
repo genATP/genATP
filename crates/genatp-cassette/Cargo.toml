@@ -32,6 +32,9 @@ base64 = { workspace = true }
 url = { workspace = true }
 # Cross-crate
 genatp-core = { path = "../genatp-core" }
+genatp-perception = { path = "../genatp-perception" }
+genatp-llm = { path = "../genatp-llm" }
+genatp-vault = { path = "../genatp-vault" }
 # Async replay support
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["rt", "time"] }

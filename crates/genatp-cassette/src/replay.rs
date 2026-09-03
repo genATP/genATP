@@ -20,12 +20,13 @@
 //! - **Deterministic** — same cassette, same actions, same sequence.
 //! - **Verifiable** — every step's success is tracked.
 //!
-//! ## Self-heal (future)
+//! ## Self-heal
 //!
-//! When a step fails (e.g. an element referenced by `@eN` no longer exists
-//! on the page), the self-heal engine (planned for later in Phase 8) will
-//! attempt to re-record the failed step by falling back to an LLM call.
-//! Failed steps are flagged in [`ReplayStepStatus::Failed`].
+//! When a Click/Fill step fails because an `@eN` ref no longer resolves,
+//! [`crate::heal::maybe_heal_step`] asks the LLM once for a corrected
+//! ref from the live snapshot. Successful heals bump the cassette minor
+//! version and re-sign (see [`crate::router`]). Failed steps are flagged
+//! in [`ReplayStepStatus::Failed`].
 
 use tracing::{debug, info, warn};
 
@@ -302,6 +303,11 @@ impl CassetteReplayer {
             }
             Action::Wait { ms } => {
                 tokio::time::sleep(std::time::Duration::from_millis(u64::from(*ms))).await;
+            }
+            Action::AskUser { .. } => {
+                // Interactive pause — not applicable during deterministic
+                // replay. The original answer already shaped later steps.
+                debug!(seq = step.seq, "skipping ask_user during cassette replay");
             }
             Action::Finish { .. } => {
                 // Finish is a no-op for the browser; the orchestrator

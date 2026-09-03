@@ -151,6 +151,11 @@ async fn agent_fills_and_submits_signup_form() {
         },
         pricing: Pricing::FREE,
         retry: genatp_core::RetryPolicy::NEVER,
+        record: false,
+        record_slug: None,
+        max_context_tokens: 120_000,
+        skip_cassette: false,
+        cassette_slug: None,
     };
 
     let mut log = EventLog::in_memory();
@@ -162,6 +167,8 @@ async fn agent_fills_and_submits_signup_form() {
         snapshot_store: None,
         policy_engine: genatp_perception::PolicyEngine::default(),
         vision_provider: None,
+        user_prompt: None,
+        cancel: None,
     })
     .await
     .expect("orchestrator should succeed");

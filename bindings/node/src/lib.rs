@@ -366,21 +366,12 @@ pub fn build_info() -> Result<serde_json::Value> {
     }))
 }
 
-/// Run a single agent task. This is the heart of the Node SDK.
+/// High-level one-shot agent run.
 ///
-/// Parameters:
-/// - `goal`: plain-English task description
-/// - `startUrl`: URL the agent starts on
-/// - `model`: LLM model id (optional — uses provider default)
-/// - `maxSteps`: step ceiling (default 30)
-/// - `maxTokens`: hard token budget (0 = unlimited)
-/// - `maxWallSec`: wall-clock budget in seconds (0 = unlimited)
-/// - `maxUsd`: dollar budget (0 = unlimited)
-/// - `systemPrompt`: override the default system prompt
-/// - `headless`: Chrome headless mode (default true)
-/// - `userDataDir`: persistent profile directory (optional)
-/// - `provider`: `"anthropic"`, `"openai"`, `"nim"`, `"ollama"`, `"mock"`
-/// - `mockReply`: mock provider response (only used with provider="mock")
+/// Defaults: `maxTokens=100000`, `maxWallSec=600` (pass `0` for unlimited).
+/// When `record` is true, successful runs write an Action Cassette.
+/// Ctrl+C cooperatively aborts after the current step.
+/// When `headless` is false, `ask_user` tool calls prompt on stdin.
 #[napi]
 #[allow(clippy::too_many_arguments)]
 pub fn run_agent(
@@ -396,10 +387,19 @@ pub fn run_agent(
     user_data_dir: Option<String>,
     provider: Option<String>,
     mock_reply: Option<String>,
+    record: Option<bool>,
+    record_slug: Option<String>,
 ) -> Result<NativeRunResult> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use genatp_cassette::record::CassetteRecorder;
+    use genatp_core::task::DEFAULT_MAX_CONTEXT_TOKENS;
+    use genatp_core::user_prompt::{StdinUserPrompt, UserPrompt};
+
     let runtime = build_runtime()?;
+    let do_record = record.unwrap_or(false);
+    let is_headless = headless.unwrap_or(true);
     let outcome = runtime.block_on(async move {
-        // 1) Resolve provider.
         let (provider_arc, resolved_model): (Arc<dyn genatp_llm::LlmProvider>, String) =
             match provider.as_deref() {
                 Some("mock") => {
@@ -420,9 +420,8 @@ pub fn run_agent(
                 }
             };
 
-        // 2) Launch browser.
         let browser = genatp_browser::launch(LaunchOptions {
-            headless: if headless.unwrap_or(true) {
+            headless: if is_headless {
                 HeadlessMode::New
             } else {
                 HeadlessMode::Visible
@@ -431,44 +430,124 @@ pub fn run_agent(
             ..LaunchOptions::default()
         })
         .await
-        .map_err(to_napi_err)?;
+        .map_err(|e| {
+            to_napi_err(format!(
+                "{e}. Hint: Chrome exit 21 often means the user-data-dir is locked by another \
+                 Chrome process, or CHROME_PATH is wrong."
+            ))
+        })?;
         let page = browser.new_page().await.map_err(to_napi_err)?;
 
-        // 3) Build task.
         let id = format!("node-{}", now_ms());
+        let slug = record_slug.clone().unwrap_or_else(|| id.clone());
+        let goal_owned = goal.clone();
         let task = Task {
-            id,
+            id: id.clone(),
             goal,
             start_url,
             model: resolved_model,
             system_prompt,
             max_steps: max_steps.unwrap_or(30) as u32,
             budget: BudgetLimits {
-                max_tokens: max_tokens.unwrap_or(0) as u32,
-                max_wall: Duration::from_secs(max_wall_sec.unwrap_or(0) as u64),
+                max_tokens: max_tokens.unwrap_or(100_000) as u32,
+                max_wall: Duration::from_secs(max_wall_sec.unwrap_or(600) as u64),
                 max_usd: max_usd.unwrap_or(0.0),
                 ..BudgetLimits::default()
             },
             pricing: Pricing::FREE,
             retry: genatp_core::RetryPolicy::default(),
+            record: do_record,
+            record_slug: if do_record { Some(slug.clone()) } else { None },
+            max_context_tokens: DEFAULT_MAX_CONTEXT_TOKENS,
+            skip_cassette: false,
+            cassette_slug: None,
         };
 
-        // 4) Run orchestrator.
+        let cancel = Arc::new(AtomicBool::new(false));
+        let cancel_flag = cancel.clone();
+        tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() {
+                cancel_flag.store(true, Ordering::SeqCst);
+                eprintln!("genATP: interrupt received — aborting after current step…");
+            }
+        });
+
+        let user_prompt: Option<Arc<dyn UserPrompt>> = if is_headless {
+            None
+        } else {
+            Some(Arc::new(StdinUserPrompt) as Arc<dyn UserPrompt>)
+        };
+
+        let page_adapter = PageAdapter::new(page);
+        let heal = if do_record {
+            None
+        } else {
+            Some(genatp_cassette::HealConfig {
+                provider: provider_arc.clone(),
+                model: task.model.clone(),
+            })
+        };
+        if let Ok(Some(genatp_cassette::RouteHit::Replay {
+            slug: hit_slug,
+            version,
+            outcome: replay,
+            healed_version,
+        })) = genatp_cassette::try_route(
+            &page_adapter,
+            genatp_cassette::RouteOptions {
+                slug: task.cassette_slug.as_deref(),
+                goal: &task.goal,
+                start_url: &task.start_url,
+                skip_cassette: task.skip_cassette || do_record,
+                vault_capability: None,
+                heal,
+            },
+        )
+        .await
+        {
+            let summary = format!(
+                "cassette replay {hit_slug}@{version}: {} ok / {} failed in {}ms{}",
+                replay.steps_succeeded,
+                replay.steps_failed,
+                replay.duration_ms,
+                healed_version
+                    .map(|v| format!(" (healed → {v})"))
+                    .unwrap_or_default()
+            );
+            let _ = browser.shutdown(Duration::from_secs(5)).await;
+            return Ok(NativeRunResult {
+                outcome: "success".into(),
+                summary,
+                steps: (replay.steps_succeeded + replay.steps_failed) as i32,
+                tokens: 0,
+                usd: 0.0,
+                event_count: 0,
+            });
+        }
+
         let mut log = EventLog::in_memory();
         let result = run_task(OrchestratorConfig {
             task,
-            browser: PageAdapter::new(page),
+            browser: page_adapter,
             provider: provider_arc,
             event_log: &mut log,
             snapshot_store: None,
             policy_engine: genatp_perception::PolicyEngine::default(),
             vision_provider: None,
+            user_prompt,
+            cancel: Some(cancel),
         })
         .await;
 
-        let event_count = log.entries().len() as i32;
+        if do_record && let Ok(RunOutcome::Success { .. }) = &result {
+            let recorder = CassetteRecorder::new(slug, goal_owned);
+            match recorder.record_and_save(&log) {
+                Ok(path) => eprintln!("genATP: cassette saved to {}", path.display()),
+                Err(e) => eprintln!("genATP: cassette record failed: {e}"),
+            }
+        }
 
-        // 5) Extract final spend from event log.
+        let event_count = log.entries().len() as i32;
         let last_spend = log.entries().iter().rev().find_map(|entry| {
             if let genatp_core::event_log::Event::RunFinished { spend, .. } = &entry.event {
                 Some(*spend)
@@ -507,7 +586,6 @@ pub fn run_agent(
             },
         };
 
-        // 6) Shutdown browser.
         let _ = browser
             .shutdown(Duration::from_secs(5))
             .await

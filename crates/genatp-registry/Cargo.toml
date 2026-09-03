@@ -30,6 +30,7 @@ zstd = { workspace = true }
 ed25519-dalek = { workspace = true }
 directories = { workspace = true }
 genatp-cassette = { path = "../genatp-cassette" }
+toml = "0.8"
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -89,18 +89,27 @@ pub fn install(
 
     // Trust ladder enforcement.
     let trust_level = manifest.trust_level;
-    if trust_level.is_blocked() {
+    let pinned = crate::keys::load_bundled().unwrap_or_default();
+    let pinned_ok = pinned.contains_hex(&manifest.publisher_key);
+
+    if trust_level.is_blocked() && !pinned_ok {
         return Err(crate::RegistryError::UnsignedBlocked);
     }
-    if trust_level.requires_warning() && !confirmed {
+    if trust_level.requires_warning() && !confirmed && !pinned_ok {
         return Err(crate::RegistryError::SelfSignedRequiresConfirm);
     }
 
     let mut warnings = Vec::new();
-    if trust_level.requires_warning() {
+    if trust_level.requires_warning() && !pinned_ok {
         warnings.push(format!(
             "cassette `{}` is self-signed by `{}`. Verify the publisher before running.",
             slug, manifest.publisher
+        ));
+    }
+    if pinned_ok {
+        warnings.push(format!(
+            "publisher key for `{}` matches crates/genatp-registry/keys.toml",
+            manifest.publisher
         ));
     }
 

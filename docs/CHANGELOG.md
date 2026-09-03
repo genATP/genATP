@@ -14,6 +14,28 @@ See [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md) for the full phase roadmap an
 
 ### Added
 
+- **Product completion (self-hosted)** — cassette router + self-heal, vault scope, registry keys, honesty docs:
+  - Cassette **router**: matching slug/goal+host → zero-token replay before plan (`try_route` in CLI/Python/Node)
+  - **Self-heal**: on Click/Fill drift during replay, scoped LLM patch + cassette minor bump
+  - MCP `genatp serve --vault-domains a,b` scopes vault capability (default remains allow-any)
+  - `crates/genatp-registry/keys.toml` pinned-key file + loader (empty until official keys)
+  - Makefile smoke/test/bench targets; README/ARCHITECTURE/CONFIGURATION/SECURITY/BENCHMARK honesty pass
+  - Guides: AUTH_VAULT / CLI_NIM / SHORTCOMINGS / FULL_SYSTEM_USER_TEST
+
+- **Gaps closure (2026-09-01)** — packaging parity, profile isolation, user manual:
+  - `genatp cassette replay --user-data-dir`; auto unique temp Chrome profile per launch
+  - Rebuilt CLI/Python 1.0.0/Node napi; NIM default → `openai/gpt-oss-20b` in `.env.example`
+  - `docs/USER_MANUAL.md` (v1.0.0); `AUTH_VAULT_LIVE_E2E.md`; expanded FULL_SYSTEM runbook
+
+- **Wave-1 agent control (SDK/CLI)** — hard stop defaults, mid-run `ask_user`, cooperative interrupt, cassette record toggle:
+  - SDK/CLI defaults: `max_tokens=100_000`, `max_wall=600s` (`0` remains unlimited opt-in); conversation context guard before each LLM call
+  - New tool `ask_user` — orchestrator pauses until CLI stdin / Python `ask_user=` / headed Node stdin answers
+  - Ctrl+C cooperatively aborts after the current step; Python `Agent.continue_after_interrupt` restudies via `user_data_dir`
+  - Cassette recording: `Agent(record=True)`, Node `record: true`, `genatp run --record`, live `genatp record` (stub removed)
+  - Python/Node package versions aligned to workspace `1.0.0`
+  - Browser: Chrome exit-21 launch hint; CDP click retry on “no layout object”
+  - Guides: `AUTH_VAULT_MANUAL_TEST.md`, `CLI_NIM_USER_TEST.md`, `SHORTCOMINGS_IDENTIFICATION_GUIDE.md`, `FULL_SYSTEM_USER_TEST.md`
+
 - **Cassette Registry (Phase 14)** — OCI Distribution v1.1–inspired cassette registry:
   - `genatp registry search`, `install`, `publish`, `info`, `publishers`, `serve`
   - Trust ladder: unsigned blocked, self-signed warns, verified auto-runs

@@ -1,6 +1,6 @@
 [package]
 name = "genatp-node"
-description = "TypeScript/Node SDK bindings (NAPI-RS). Phase 10 (v0.6.0)."
+description = "TypeScript/Node SDK bindings (NAPI-RS). v1.0.0."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -41,6 +41,7 @@ genatp-llm = { path = "../../crates/genatp-llm" }
 genatp-browser = { path = "../../crates/genatp-browser" }
 genatp-perception = { path = "../../crates/genatp-perception" }
 genatp-mcp = { path = "../../crates/genatp-mcp" }
+genatp-cassette = { path = "../../crates/genatp-cassette" }
 
 [build-dependencies]
 napi-build = "2"

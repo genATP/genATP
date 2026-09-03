@@ -915,15 +915,11 @@ test e2e_empty_log_rejected ... ok
 test e2e_failed_run_rejected ... ok
 ```
 
-### 7.2 Generate a Real Cassette File (Dry-Run)
+### 7.2 Generate a Real Cassette File
 
-> ⚠ **Note:** The `genatp record` CLI command exists but is a **stub** — it prints a message
-> and does **not** actually record. Full recording via the CLI requires the orchestrator
-> to be fully wired up with a live browser session (planned Phase 7 E2E integration).
-> The cassette recording *library* (`CassetteRecorder`) is production-ready and tested
-> (see §7.1 automated tests).
-
-The bootstrap example creates a real cassette on disk using the recording library:
+`genatp record <slug> <url> <goal>` and `genatp run --record --slug …` run the live
+orchestrator and write a signed cassette on success. For a library-only dry-run
+without an LLM provider:
 
 ```bash
 cargo run --release --example bootstrap_cassette -p genatp-cassette

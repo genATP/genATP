@@ -190,6 +190,11 @@ async fn orchestrator_runs_5_step_task_against_mocks() {
         },
         pricing: Pricing::FREE,
         retry: genatp_core::RetryPolicy::NEVER,
+        record: false,
+        record_slug: None,
+        max_context_tokens: 120_000,
+        skip_cassette: false,
+        cassette_slug: None,
     };
 
     let browser = MockBrowser::default();
@@ -203,6 +208,8 @@ async fn orchestrator_runs_5_step_task_against_mocks() {
         snapshot_store: None,
         policy_engine: genatp_perception::PolicyEngine::default(),
         vision_provider: None,
+        user_prompt: None,
+        cancel: None,
     })
     .await
     .expect("must succeed");
@@ -270,6 +277,11 @@ async fn orchestrator_aborts_on_budget() {
         },
         pricing: Pricing::FREE,
         retry: genatp_core::RetryPolicy::NEVER,
+        record: false,
+        record_slug: None,
+        max_context_tokens: 120_000,
+        skip_cassette: false,
+        cassette_slug: None,
     };
 
     let browser = MockBrowser::default();
@@ -297,6 +309,8 @@ async fn orchestrator_aborts_on_budget() {
         snapshot_store: None,
         policy_engine: genatp_perception::PolicyEngine::default(),
         vision_provider: None,
+        user_prompt: None,
+        cancel: None,
     })
     .await
     .expect_err("must abort");

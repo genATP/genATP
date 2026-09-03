@@ -37,6 +37,8 @@
 //!     snapshot_store: None,
 //!     policy_engine: PolicyEngine::default(),
 //!     vision_provider: None,
+//!     user_prompt: None,
+//!     cancel: None,
 //! })
 //! .await?;
 //! # let _ = outcome;
@@ -59,6 +61,7 @@ pub mod page_adapter;
 pub mod perception_bridge;
 pub mod retry;
 pub mod task;
+pub mod user_prompt;
 
 pub use action::{Action, ActionResult};
 pub use budget::{BudgetCheck, BudgetError, BudgetGuard, BudgetLimits, BudgetSpend, Pricing};
@@ -68,7 +71,8 @@ pub use event_log::{Event, EventEntry, EventLog};
 pub use orchestrator::{OrchestratorConfig, RunOutcome, run};
 pub use page_adapter::PageAdapter;
 pub use retry::RetryPolicy;
-pub use task::Task;
+pub use task::{DEFAULT_MAX_CONTEXT_TOKENS, DEFAULT_MAX_TOKENS, DEFAULT_MAX_WALL_SECS, Task};
+pub use user_prompt::{CallbackUserPrompt, StdinUserPrompt, UserPrompt};
 
 /// Returns this crate's package version.
 #[must_use]

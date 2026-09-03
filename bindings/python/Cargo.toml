@@ -1,6 +1,6 @@
 [package]
 name = "genatp-python"
-description = "Python SDK bindings for genATP via PyO3 + maturin. Phase 5 (v0.2.0)."
+description = "Python SDK bindings for genATP via PyO3 + maturin (v1.0.0)."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -44,3 +44,4 @@ genatp-llm = { path = "../../crates/genatp-llm" }
 genatp-browser = { path = "../../crates/genatp-browser" }
 genatp-perception = { path = "../../crates/genatp-perception" }
 genatp-mcp = { path = "../../crates/genatp-mcp" }
+genatp-cassette = { path = "../../crates/genatp-cassette" }

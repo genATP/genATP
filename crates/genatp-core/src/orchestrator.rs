@@ -37,6 +37,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use genatp_llm::{CompletionRequest, FinishReason, LlmProvider, Message};
@@ -56,6 +57,7 @@ use crate::event_log::{Event, EventLog};
 use crate::perception_bridge::raw_tree_from_accessibility;
 use crate::retry::RetryPolicy;
 use crate::task::Task;
+use crate::user_prompt::UserPrompt;
 
 /// Final outcome of a run.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,7 +65,7 @@ pub enum RunOutcome {
     /// Agent emitted a `finish` tool call with a summary, or replied with a
     /// stop-reason text answer.
     Success { summary: String, steps: u32 },
-    /// Step / budget / deadline limit reached.
+    /// Step / budget / deadline / interrupt limit reached.
     Aborted { reason: String, steps: u32 },
 }
 
@@ -80,6 +82,11 @@ pub struct OrchestratorConfig<'a, B> {
     /// Optional vision provider for screenshot-based perception.
     /// When `None`, the policy engine will never select Vision mode.
     pub vision_provider: Option<Box<dyn VisionProvider>>,
+    /// Mid-run human input (ask_user tool). When `None`, ask_user fails
+    /// with a clear config error instead of hanging.
+    pub user_prompt: Option<Arc<dyn UserPrompt>>,
+    /// Cooperative cancel — set to true (e.g. Ctrl+C) to abort between steps.
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 /// Public entry point — run a single task to completion.
@@ -129,6 +136,23 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
     loop {
         step += 1;
         debug!(step, "loop iteration");
+
+        // Cooperative cancel (Ctrl+C / SDK cancel).
+        if cfg
+            .cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::SeqCst))
+        {
+            cfg.event_log.append(Event::RunFinished {
+                outcome: "aborted".into(),
+                steps: step - 1,
+                spend: budget.spend(),
+            })?;
+            return Ok(RunOutcome::Aborted {
+                reason: "interrupted by user — re-run with the same user_data_dir / vault to continue after restudying the page".into(),
+                steps: step - 1,
+            });
+        }
 
         // Step deadline check.
         if step > task.max_steps {
@@ -183,6 +207,9 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
             .await?;
 
         conversation.push(Message::user(snapshot_msg));
+
+        // Context guard — drop oldest turns (keep system + goal) before LLM call.
+        truncate_conversation(&mut conversation, task.max_context_tokens);
 
         // ── 2) LLM call (with retries) ─────────────────────────────────────
 
@@ -260,6 +287,34 @@ pub async fn run<B: BrowserAdapter>(cfg: OrchestratorConfig<'_, B>) -> Result<Ru
                 cfg.event_log.append(Event::ActionRequested {
                     action: action.clone(),
                 })?;
+
+                // ask_user — block for host answer; do not finish.
+                if let Action::AskUser { question, options } = &action {
+                    let prompt = cfg.user_prompt.as_ref().ok_or_else(|| {
+                        CoreError::Config(
+                            "ask_user called but no UserPrompt host is registered \
+                             (pass a callback / use interactive CLI)"
+                                .into(),
+                        )
+                    })?;
+                    let answer = prompt.ask(question, options.as_deref()).await?;
+                    let result = ActionResult {
+                        action: action.clone(),
+                        success: true,
+                        message: Some(format!("user answered: {answer}")),
+                    };
+                    cfg.event_log.append(Event::ActionResult {
+                        action: action.clone(),
+                        success: true,
+                        message: result.message.clone(),
+                    })?;
+                    conversation.push(Message::tool(
+                        serde_json::to_string(&result).unwrap_or_else(|_| answer.clone()),
+                        &call.id,
+                    ));
+                    continue;
+                }
+
                 let result: ActionResult =
                     dispatcher.dispatch(action.clone(), &ref_to_node).await?;
                 cfg.event_log.append(Event::ActionResult {
@@ -500,13 +555,52 @@ fn build_initial_conversation(task: &Task) -> Vec<Message> {
     let default_system = "You are an autonomous browser agent. \
 You receive compressed accessibility snapshots of the current page and must \
 call one of the provided tools (navigate, click, fill, press, scroll, wait, \
-finish) on each turn. Refer to elements only by their @eN refs. Call `finish` \
-with a summary as soon as the task is complete.";
+ask_user, finish) on each turn. Refer to elements only by their @eN refs. \
+\
+EXIT RULES: Call `finish` as soon as the goal is met, blocked, or a negative \
+constraint applies (do not submit / do not buy / do not send / stop if …). \
+Never continue browsing after a negative constraint is satisfied by stopping. \
+\
+APPROVALS: If you need human confirmation (send email, purchase, delete, \
+submit), call `ask_user` and WAIT. Do NOT call `finish` with prose like \
+'awaiting your approval' — that does not pause the run.";
     messages.push(Message::system(
         task.system_prompt.as_deref().unwrap_or(default_system),
     ));
     messages.push(Message::user(format!("Goal: {}", task.goal)));
     messages
+}
+
+/// Rough token estimate (~4 chars / token) for conversation truncation.
+fn approx_tokens(messages: &[Message]) -> u32 {
+    let chars: usize = messages
+        .iter()
+        .map(|m| {
+            m.content.len()
+                + m.tool_calls
+                    .iter()
+                    .map(|t| t.name.len() + 32)
+                    .sum::<usize>()
+        })
+        .sum();
+    u32::try_from(chars / 4).unwrap_or(u32::MAX)
+}
+
+/// Keep system + goal; drop oldest middle messages until under `max_tokens`.
+fn truncate_conversation(conversation: &mut Vec<Message>, max_tokens: u32) {
+    if max_tokens == 0 || conversation.len() <= 2 {
+        return;
+    }
+    while approx_tokens(conversation) > max_tokens && conversation.len() > 3 {
+        // Index 0 = system, 1 = goal — remove from index 2 upward.
+        conversation.remove(2);
+    }
+    if approx_tokens(conversation) > max_tokens {
+        warn!(
+            approx = approx_tokens(conversation),
+            max_tokens, "conversation still large after truncation"
+        );
+    }
 }
 
 /// Build a `Ref -> CDP node_id` lookup the dispatcher uses to resolve

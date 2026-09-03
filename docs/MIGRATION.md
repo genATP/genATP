@@ -14,6 +14,19 @@ in each release.
 
 ---
 
+## Wave-1 agent control flags (1.0.0 SDK/CLI)
+
+Python packages move from `0.2.0` → `1.0.0`; Node from `0.6.0` → `1.0.0`.
+
+| Surface | Change |
+|---|---|
+| Python `Agent` | Defaults: `max_tokens=100_000`, `max_wall_seconds=600`. New: `record`, `record_slug`, `ask_user`, `continue_after_interrupt`. |
+| Node `Agent` | Defaults: `maxTokens=100000`, `maxWallSec=600`. New: `record`, `recordSlug`. Headed runs use stdin for `ask_user`. |
+| CLI | New `genatp run --goal … --start-url … [--record]`. `genatp record` is live (no longer a stub). Same token/wall defaults. |
+| Unlimited budgets | Pass `0` for tokens/wall explicitly if you need the old unlimited behaviour. |
+
+---
+
 ## v0.3.x → v1.0.0
 
 ### Breaking Changes

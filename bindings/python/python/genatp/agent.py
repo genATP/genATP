@@ -16,6 +16,7 @@ PRD 5-line quickstart::
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -28,15 +29,19 @@ from genatp.errors import RunError
 #: tasks — chosen for the PRD quickstart, not as a recommendation.
 DEFAULT_START_URL: Final[str] = "https://www.google.com"
 
+AskUserFn = Callable[[str, list[str] | None], str]
+
 
 @dataclass(slots=True)
 class Agent:
     """A single agent able to drive a real browser to accomplish tasks.
 
-    The agent is **stateless across calls**: each :meth:`run` launches
-    a fresh browser, runs the plan loop, then tears Chrome down. For
-    longer interactive sessions, use :class:`genatp.BrowserSession`
-    directly.
+    The agent is **stateless across successful calls** by default: each
+    :meth:`run` launches a fresh browser, runs the plan loop, then tears
+    Chrome down. Pass a stable :attr:`user_data_dir` (and use Auth Vault /
+    MCP ``save_auth``) to keep sessions across runs. After an interrupt,
+    re-run with the same ``user_data_dir`` and a continue-style goal so the
+    agent restudies the live page.
 
     Args:
         model: LLM model id to send on every ``CompletionRequest``.
@@ -45,36 +50,37 @@ class Agent:
             ``"ollama"``, ``"mock"``. ``None`` auto-detects from env
             vars (see :func:`genatp.resolve_provider_from_env`).
         max_steps: Step ceiling. Independent of token / wall budgets.
-        max_tokens: Hard token budget (0 = unlimited).
-        max_wall_seconds: Wall-clock budget (0 = unlimited).
-        max_usd: Dollar budget (0 = unlimited; only meaningful when
-            the orchestrator's :class:`Pricing` is non-zero, which is
-            today a TODO for the Python wrapper — see issue tracker).
+        max_tokens: Hard token budget (``0`` = unlimited). Default
+            ``100_000`` to prevent NIM context blow-ups.
+        max_wall_seconds: Wall-clock budget (``0`` = unlimited). Default
+            ``600``.
+        max_usd: Dollar budget (``0`` = unlimited).
         headless: Chrome headless mode.
         user_data_dir: Persistent profile path. ``None`` uses a fresh
             temp directory each run (recommended for ephemeral agents).
         system_prompt: Override the orchestrator's default system
-            prompt. Use this to scope the agent (``"You only answer
-            questions about company internals."``).
-
-    Examples:
-        Mock-provider smoke test (no network)::
-
-            agent = Agent(provider="mock", mock_reply="done")
-            r = agent.run("Greet me", start_url="data:text/html,<h1>hi</h1>")
-            assert r.outcome == "success"
+            prompt.
+        record: When ``True``, successful runs are saved as Action
+            Cassettes (any site).
+        record_slug: Cassette slug when ``record`` is True (defaults to
+            the task id).
+        ask_user: Optional ``(question, options|None) -> str`` callback.
+            When omitted and ``headless=False``, stdin is used.
     """
 
     model: str | None = None
     provider: Literal["anthropic", "openai", "nim", "ollama", "mock"] | None = None
     max_steps: int = 30
-    max_tokens: int = 0
-    max_wall_seconds: int = 0
+    max_tokens: int = 100_000
+    max_wall_seconds: int = 600
     max_usd: float = 0.0
     headless: bool = True
     user_data_dir: str | None = None
     system_prompt: str | None = None
     mock_reply: str | None = None
+    record: bool = False
+    record_slug: str | None = None
+    ask_user: AskUserFn | None = None
 
     def run(
         self,
@@ -82,30 +88,19 @@ class Agent:
         *,
         start_url: str | None = None,
         task_id: str | None = None,
+        record: bool | None = None,
+        record_slug: str | None = None,
     ) -> RunResult:
         """Run the agent against one goal.
 
-        Blocks the calling thread until the orchestrator returns. Use
-        :meth:`arun` from inside an ``asyncio`` loop instead — it
-        offloads the blocking work to :func:`asyncio.to_thread`.
-
-        Args:
-            goal: Plain-English task description.
-            start_url: URL the agent navigates to first. Defaults to
-                :data:`DEFAULT_START_URL`.
-            task_id: Caller-supplied id used as the event-log filename
-                in long-lived runs. Defaults to a timestamp-based id.
-
-        Returns:
-            :class:`genatp.RunResult` describing the outcome.
-
-        Raises:
-            RunError: For unexpected errors that escape the orchestrator
-                (typically misconfiguration). Note that ``aborted`` is a
-                *normal* outcome and surfaces through
-                :attr:`RunResult.outcome`, not via this exception.
+        Ctrl+C cooperatively aborts after the current step (headed or
+        headless). To continue later, call :meth:`run` again with the same
+        :attr:`user_data_dir` and a goal that says to continue from the
+        current page.
         """
         start = start_url or DEFAULT_START_URL
+        do_record = self.record if record is None else record
+        slug = self.record_slug if record_slug is None else record_slug
         try:
             native = _native_run(
                 goal=goal,
@@ -121,6 +116,10 @@ class Agent:
                 user_data_dir=self.user_data_dir,
                 provider=self.provider,
                 mock_reply=self.mock_reply,
+                record=do_record,
+                record_slug=slug,
+                ask_user=self.ask_user,
+                enable_stdin_ask=None,
             )
         except Exception as exc:
             raise RunError(str(exc)) from exc
@@ -130,7 +129,6 @@ class Agent:
             usd=native.usd,
             event_count=native.event_count,
         )
-        # The Rust layer guarantees `outcome` is one of three known strings.
         outcome: Literal["success", "aborted", "error"] = native.outcome  # type: ignore[assignment]
         return RunResult(
             outcome=outcome,
@@ -139,17 +137,46 @@ class Agent:
             spend=spend,
         )
 
+    def continue_after_interrupt(
+        self,
+        original_goal: str,
+        *,
+        start_url: str | None = None,
+        task_id: str | None = None,
+    ) -> RunResult:
+        """Resume after a cooperative interrupt by restudying the page.
+
+        Requires a persistent :attr:`user_data_dir` so the headed browser
+        profile (cookies / tabs) still exists. Prefixes the goal so the
+        model treats the open page as current state.
+        """
+        if not self.user_data_dir:
+            raise RunError(
+                "continue_after_interrupt requires Agent(user_data_dir=...) "
+                "so the browser profile survives the interrupt"
+            )
+        cont = (
+            "Continue the previous task after a user interrupt. "
+            "Restudy the CURRENT page snapshot carefully before acting. "
+            f"Original goal: {original_goal}"
+        )
+        return self.run(cont, start_url=start_url or DEFAULT_START_URL, task_id=task_id)
+
     async def arun(
         self,
         goal: str,
         *,
         start_url: str | None = None,
         task_id: str | None = None,
+        record: bool | None = None,
+        record_slug: str | None = None,
     ) -> RunResult:
-        """Async wrapper for :meth:`run`.
-
-        Implemented via :func:`asyncio.to_thread` so the calling event
-        loop stays unblocked while Chrome and the LLM finish their
-        roundtrips. The signature mirrors :meth:`run`.
-        """
-        return await asyncio.to_thread(self.run, goal, start_url=start_url, task_id=task_id)
+        """Async wrapper for :meth:`run`."""
+        return await asyncio.to_thread(
+            self.run,
+            goal,
+            start_url=start_url,
+            task_id=task_id,
+            record=record,
+            record_slug=record_slug,
+        )

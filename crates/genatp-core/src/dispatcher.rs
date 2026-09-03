@@ -128,6 +128,9 @@ impl<B: BrowserAdapter> ActionDispatcher<B> {
                 tokio::time::sleep(std::time::Duration::from_millis(u64::from(*ms))).await;
                 ok(&action, "waited")
             }
+            // Handled by the orchestrator (blocks on UserPrompt). Never reaches here
+            // in production; kept for exhaustive match + unit tests.
+            Action::AskUser { .. } => ok(&action, "ask_user"),
             Action::Finish { .. } => ok(&action, "finish"),
         };
         Ok(result)

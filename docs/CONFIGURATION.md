@@ -4,9 +4,10 @@ genATP is configured through **environment variables**. Both local LLMs
 (Ollama) and hosted APIs (Anthropic, OpenAI, NVIDIA NIM) are
 first-class — pick whichever fits your workflow, no recompile required.
 
-Status: this guide covers everything implemented through **v0.1.0**.
-Auth Vault (Phase 6, v0.3.0) will add OS-keychain storage as an
-alternative to env vars; until then env vars are the source of truth.
+Status: this guide covers the **v1.0.0** self-hosted product (CLI, SDKs, MCP,
+Auth Vault with OS keychain, Action Cassettes, NIM/Anthropic/OpenAI/Ollama).
+Environment variables remain the source of truth for LLM providers; the vault
+stores session cookies/localStorage via the OS keychain, not API keys.
 
 ---
 
@@ -134,8 +135,10 @@ calling). Live-tested on the genATP agent loop, ranked best-to-worst:
 
 | Model id                                       | Tool calls correctly? | Free-tier latency | Notes                                      |
 |------------------------------------------------|:---------------------:|:-----------------:|--------------------------------------------|
-| `stepfun-ai/step-3.5-flash`                    | yes                   | ~7 s              | **Recommended.** End-to-end form fill in 6 steps. |
-| `nvidia/nemotron-mini-4b-instruct`             | yes                   | ~13 s             | Small but emits structured tool calls.     |
+| `openai/gpt-oss-20b`                           | yes (verify)          | ~6 s              | **Verified 2026-08-31** — example.com H1 in 1 step / 1058 tok. |
+| `mistralai/mistral-nemotron`                   | verify on your key    | slower            | Listed on NIM; can timeout on free tier. |
+| `stepfun-ai/step-3.5-flash`                    | ~~EOL~~               | —                 | **Gone** (NIM 410 after 2026-07-27). Do not use. |
+| `nvidia/nemotron-mini-4b-instruct`             | may be unavailable    | —                 | Not present on integrate.api.nvidia.com model list (2026-08-31). |
 | `meta/llama-4-maverick-17b-128e-instruct`      | no — JSON-as-text     | ~27 s             | Replies, but tool format is wrong.         |
 | `mistralai/mistral-nemotron`                   | no — JSON-as-text     | ~1 s              | Same problem; quick but unusable for agents. |
 | `qwen/qwen3-coder-480b-a35b-instruct`          | unknown               | timed out (180 s) | Overloaded on free tier as of May 2026.   |

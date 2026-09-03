@@ -1,0 +1,13 @@
+# Pinned ed25519 verifying keys for org-signed / maintainer cassettes.
+# Hex-encoded 32-byte public keys (ed25519).
+#
+# Until official release keys are published, leave `[maintainers]` empty.
+# Local registry trust still works via SQLite `publishers.verified` and the
+# install trust ladder (unsigned blocked / self-signed warns / verified auto).
+
+[maintainers]
+# Example (do not use):
+# genatp = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+[org]
+# org-name = "..."

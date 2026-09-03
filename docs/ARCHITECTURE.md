@@ -244,7 +244,7 @@ sequenceDiagram
     I-->>A: result
 ```
 
-**Token math**: a cassette-hit step costs ~80 tokens (a tiny patch sent back). A cassette-miss step costs ~600 tokens (compressed diff snapshot + reply). A vision-fallback step costs ~12,000 tokens. The router picks the cheapest viable path every time.
+**Token math (design targets)**: a cassette-hit costs **0 LLM tokens** (deterministic replay; optional heal uses a scoped LLM call only on drift). A cassette-miss plan step costs ~600 tokens (compressed snapshot + reply). A vision-fallback step costs ~12,000 tokens. The cassette router tries replay before planning whenever a matching cassette exists.
 
 ---
 
@@ -405,7 +405,9 @@ graph TB
     ENG --> LLM
 ```
 
-### 8.3 genATP Cloud (managed)
+### 8.3 Hosted / managed (out of scope for this repo)
+
+Managed cloud pools, residential proxies, and HSM vaults are **not** implemented in the self-hosted open product. The diagram below is a possible future commercial topology only — do not treat it as shipped architecture.
 
 ```mermaid
 graph TB
